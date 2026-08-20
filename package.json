@@ -1,0 +1,7 @@
+﻿{
+  "name": "is4pr-linked-parts-portal",
+  "private": true,
+  "type": "module",
+  "scripts": { "import-seed": "node scripts/import-seed.mjs" },
+  "dependencies": { "@supabase/supabase-js": "^2.54.0" }
+}

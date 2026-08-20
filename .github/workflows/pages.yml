@@ -1,4 +1,4 @@
-﻿name: Deploy static site to GitHub Pages
+name: Deploy static site to GitHub Pages
 
 on:
   push:
@@ -21,6 +21,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Upload static files
         uses: actions/upload-pages-artifact@v3
         with:

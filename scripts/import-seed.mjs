@@ -5,7 +5,9 @@ const url = process.env.SUPABASE_URL;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (!url || !serviceRoleKey) throw new Error('请设置 SUPABASE_URL 和 SUPABASE_SERVICE_ROLE_KEY');
 const client = createClient(url, serviceRoleKey, { auth: { persistSession: false } });
-const seedPath = process.env.SEED_FILE || process.argv[2];\nif (!seedPath) throw new Error('请提供 SEED_FILE，指向本地完整 seed-data.json');\nconst seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
+const seedPath = process.env.SEED_FILE || process.argv[2];
+if (!seedPath) throw new Error('请提供 SEED_FILE，指向本地完整 seed-data.json');
+const seed = JSON.parse(fs.readFileSync(seedPath, 'utf8'));
 
 for (const [sort_order, sheet] of seed.sheets.entries()) {
   const config = { key: `sheet-${sort_order + 1}`, name: sheet.name, columns: sheet.columns, sort_order };

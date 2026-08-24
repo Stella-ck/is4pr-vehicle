@@ -1,0 +1,134 @@
+{
+  "schemaVersion": 1,
+  "sourceWorkbook": "demo-only",
+  "sourceSheet": "关联件管理",
+  "generatedAt": "2026-08-24T00:00:00.000Z",
+  "vehicles": [
+    {
+      "id": "demo-uov001",
+      "vehicleCode": "IS4PR-DEMO-001",
+      "vin": "DEMO0000000000001",
+      "sourceHeader": "脱敏演示车辆 001"
+    },
+    {
+      "id": "demo-uov002",
+      "vehicleCode": "IS4PR-DEMO-002",
+      "vin": "DEMO0000000000002",
+      "sourceHeader": "脱敏演示车辆 002"
+    },
+    {
+      "id": "demo-uvv003",
+      "vehicleCode": "IS4PR-DEMO-003",
+      "vin": "DEMO0000000000003",
+      "sourceHeader": "脱敏演示车辆 003"
+    }
+  ],
+  "records": [
+    {
+      "id": "demo-001-1",
+      "vehicleId": "demo-uov001",
+      "componentName": "ADCU",
+      "componentCategory": "车身参数",
+      "versionLabel": "USS 版本",
+      "versionValue": "DEMO-USS-01.03.02",
+      "note": "仅用于界面预览，不包含生产数据。"
+    },
+    {
+      "id": "demo-001-2",
+      "vehicleId": "demo-uov001",
+      "componentName": "CCU",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F192 / 硬件版本",
+      "versionValue": "DEMO-HW-0811"
+    },
+    {
+      "id": "demo-001-3",
+      "vehicleId": "demo-uov001",
+      "componentName": "CCU",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F194 / 软件版本",
+      "versionValue": "DEMO-SW-1.0.0"
+    },
+    {
+      "id": "demo-001-4",
+      "vehicleId": "demo-uov001",
+      "componentName": "IPD",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "配置字",
+      "versionValue": "DEMO-CONFIG-A"
+    },
+    {
+      "id": "demo-001-5",
+      "vehicleId": "demo-uov001",
+      "componentName": "IAM",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "MCU 版本",
+      "versionValue": "DEMO-IAM-MCU-5.2.0"
+    },
+    {
+      "id": "demo-002-1",
+      "vehicleId": "demo-uov002",
+      "componentName": "CCU",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F192 / 硬件版本",
+      "versionValue": "DEMO-HW-0811"
+    },
+    {
+      "id": "demo-002-2",
+      "vehicleId": "demo-uov002",
+      "componentName": "CCU",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F194 / 软件版本",
+      "versionValue": "DEMO-SW-1.1.0"
+    },
+    {
+      "id": "demo-002-3",
+      "vehicleId": "demo-uov002",
+      "componentName": "EPS",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F1A0 / 应用软件版本",
+      "versionValue": "DEMO-EPS-2.4.7"
+    },
+    {
+      "id": "demo-002-4",
+      "vehicleId": "demo-uov002",
+      "componentName": "TPMS",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F194 / 软件版本",
+      "versionValue": "DEMO-TPMS-4.0"
+    },
+    {
+      "id": "demo-003-1",
+      "vehicleId": "demo-uvv003",
+      "componentName": "EAC",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F194 / 软件版本",
+      "versionValue": "DEMO-EAC-3.0.2"
+    },
+    {
+      "id": "demo-003-2",
+      "vehicleId": "demo-uvv003",
+      "componentName": "ESS",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "F1A1 / 标定版本",
+      "versionValue": "DEMO-ESS-CAL-8.1"
+    },
+    {
+      "id": "demo-003-3",
+      "vehicleId": "demo-uvv003",
+      "componentName": "IAM",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "Modem 版本",
+      "versionValue": "DEMO-IAM-MDM-5.2.0"
+    },
+    {
+      "id": "demo-003-4",
+      "vehicleId": "demo-uvv003",
+      "componentName": "IPD",
+      "componentCategory": "中控屏查询版本",
+      "versionLabel": "配置字",
+      "versionValue": "DEMO-CONFIG-B",
+      "note": "实际项目数据请通过本地导入脚本写入 Supabase。"
+    }
+  ]
+}

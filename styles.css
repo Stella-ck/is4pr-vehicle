@@ -159,17 +159,19 @@ main { display: grid; gap: 18px; }
   padding: 43px 52px;
   border-radius: 28px;
   color: #fff;
-  background: linear-gradient(111deg, #24245f 0%, #45308d 43%, #823c9a 74%, #b9528d 100%);
+  background: #0d5fd2 url("assets/feishu-ai-background.gif") center / cover no-repeat;
   box-shadow: var(--shadow);
 }
 
 .hero::before {
   position: absolute;
   inset: 0;
-  background-image: linear-gradient(rgba(255, 255, 255, 0.11) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.11) 1px, transparent 1px);
-  background-size: 34px 34px;
+  background:
+    linear-gradient(90deg, rgba(13, 24, 100, 0.78) 0%, rgba(13, 24, 100, 0.48) 50%, rgba(13, 24, 100, 0.14) 100%),
+    linear-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+  background-size: 100% 100%, 34px 34px, 34px 34px;
   content: "";
-  mask-image: linear-gradient(90deg, transparent, #000 42%, #000);
 }
 
 .hero-copy { position: relative; z-index: 1; max-width: 660px; }

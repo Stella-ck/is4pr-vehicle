@@ -1,7 +1,13 @@
-﻿{
+{
   "name": "is4pr-linked-parts-portal",
   "private": true,
   "type": "module",
-  "scripts": { "import-seed": "node scripts/import-seed.mjs" },
-  "dependencies": { "@supabase/supabase-js": "^2.54.0" }
+  "scripts": {
+    "import-seed": "node scripts/import-seed.mjs",
+    "build-vehicle-data": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-vehicle-data.ps1",
+    "import-vehicle-data": "node scripts/import-vehicle-data.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.54.0"
+  }
 }

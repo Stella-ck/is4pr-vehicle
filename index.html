@@ -1,134 +1,134 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description" content="IS4PR 关联件管理与影响问题协同平台" />
-  <title>IS4PR 关联件工作台</title>
+  <meta name="description" content="IS4PR 车辆关联件版本管理平台" />
+  <title>IS4PR 车辆关联件管理</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <div class="app-shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark">IS</div>
-        <div>
-          <div class="brand-title">IS4PR</div>
-          <div class="brand-subtitle">LINKED PARTS HUB</div>
-        </div>
+  <div class="site-shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="IS4PR 车辆关联件管理首页">
+        <span class="brand-mark">IS</span>
+        <span><strong>IS4PR</strong><small>VEHICLE COMPONENTS</small></span>
+      </a>
+      <div class="topbar-actions">
+        <span class="connection-state"><i></i><span id="connectionLabel">正在准备数据</span></span>
+        <button class="icon-button" id="refreshBtn" type="button" title="刷新数据" aria-label="刷新数据">↻</button>
+        <button class="account-button" id="authBtn" type="button">
+          <span class="avatar" id="avatarLabel">访</span>
+          <span id="userLabel">登录查看</span>
+        </button>
       </div>
-      <div class="sidebar-label">工作区</div>
-      <nav id="sheetNav" class="sheet-nav"></nav>
-      <div class="sidebar-card">
-        <div class="sidebar-card-icon">✦</div>
-        <div>
-          <strong>协作模式</strong>
-          <p>普通用户可查看，管理员登录后可编辑全部单元格。</p>
-        </div>
-      </div>
-      <div class="sidebar-footer">
-        <span class="status-dot"></span>
-        <span id="connectionLabel">演示数据模式</span>
-      </div>
-    </aside>
+    </header>
 
-    <main class="main-area">
-      <header class="topbar">
-        <div class="crumbs">
-          <span>工作台</span><b>/</b><span id="currentSheetCrumb">关联件影响问题</span>
-        </div>
-        <div class="top-actions">
-          <span class="sync-badge"><span class="status-dot"></span><span id="syncLabel">本地预览</span></span>
-          <button class="icon-button" id="refreshBtn" title="刷新数据">↻</button>
-          <button class="user-button" id="loginBtn"><span class="avatar">访</span><span id="userLabel">访客查看</span><span class="chevron">⌄</span></button>
-        </div>
-      </header>
-
+    <main>
       <section class="hero">
-        <div>
-          <div class="eyebrow">CONTROL CENTER · 2026</div>
-          <h1>关联件工作台</h1>
-          <p>把问题状态、车辆影响和关联件管理集中到一个可追踪的协作空间。</p>
+        <div class="hero-copy">
+          <p class="eyebrow">IS4PR · COMPONENT VERSION CENTER</p>
+          <h1>按车辆汇总关联件版本</h1>
+          <p>选择一辆车，即可查看该车所有关联件、版本号与基线备注。管理员可直接维护车辆和版本记录。</p>
         </div>
-        <div class="hero-orb orb-one"></div>
-        <div class="hero-orb orb-two"></div>
-        <div class="hero-grid"></div>
-        <div class="hero-meta">
-          <span>数据源</span><strong>Excel → Supabase</strong>
+        <div class="hero-art" aria-hidden="true">
+          <span class="hero-ring ring-one"></span><span class="hero-ring ring-two"></span><span class="hero-dot dot-one"></span><span class="hero-dot dot-two"></span>
+          <div class="hero-card"><small>ACCESS</small><strong>ADMIN / VIEWER</strong><span>Supabase RLS 已保护写入权限</span></div>
         </div>
       </section>
 
-      <section class="metrics" id="metrics"></section>
+      <section class="metrics" id="metrics" aria-label="数据概览"></section>
 
-      <section class="content-card">
-        <div class="toolbar">
-          <div class="toolbar-title">
-            <span class="pulse"></span>
-            <div><h2 id="tableTitle">关联件影响问题</h2><p id="tableSubtitle">问题反馈、处理节点与车辆状态</p></div>
+      <section class="workspace">
+        <section class="panel vehicle-panel">
+          <div class="panel-header vehicle-header">
+            <div>
+              <p class="section-kicker">VEHICLES</p>
+              <h2>车辆列表</h2>
+              <p class="section-note">点击车辆卡片查看完整关联件清单。</p>
+            </div>
+            <button class="primary-button admin-only" id="addVehicleBtn" type="button" hidden>＋ 新增车辆</button>
           </div>
-          <div class="toolbar-actions">
-            <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="搜索车辆、状态、负责人…" /></label>
-            <button class="ghost-button" id="clearSearchBtn">清除</button>
-            <button class="primary-button admin-only" id="addRowBtn" hidden>＋ 新增行</button>
+          <div class="search-row">
+            <label class="search-box"><span>⌕</span><input id="searchInput" type="search" placeholder="搜索车辆编号、VIN、关联件…" autocomplete="off" /></label>
+            <button class="text-button" id="clearSearchBtn" type="button">清除</button>
           </div>
-        </div>
-        <div class="filter-row">
-          <div class="filter-chips" id="filterChips"></div>
-          <div class="table-hint"><span id="resultCount">0</span> 行 · 横向滚动查看完整单元格</div>
-        </div>
-        <div class="table-frame">
-          <table id="dataTable">
-            <thead id="tableHead"></thead>
-            <tbody id="tableBody"></tbody>
-          </table>
-          <div class="empty-state" id="emptyState" hidden>
-            <div class="empty-icon">◌</div><h3>没有匹配内容</h3><p>尝试换一个关键词或清除筛选条件。</p>
+          <div class="vehicle-grid" id="vehicleGrid"></div>
+          <div class="empty-state" id="vehicleEmpty" hidden></div>
+        </section>
+
+        <aside class="panel detail-panel" id="detailPanel">
+          <div class="detail-placeholder">
+            <span class="placeholder-icon">⌁</span>
+            <h2>选择一辆车</h2>
+            <p>车辆的关联件版本会按控制器分组显示在这里。</p>
           </div>
-        </div>
-        <div class="table-footer">
-          <span>提示：管理员可双击单元格直接编辑，点击“保存”写入 Supabase。</span>
-          <div class="footer-actions"><button class="secondary-button" id="exportBtn">导出当前视图</button><button class="secondary-button" id="adminHelpBtn">管理员说明</button></div>
-        </div>
+        </aside>
       </section>
     </main>
   </div>
 
-  <div class="modal-backdrop" id="loginModal" hidden>
-    <div class="modal-card login-card">
-      <button class="modal-close" data-close="loginModal">×</button>
-      <div class="modal-kicker">ADMIN ACCESS</div>
-      <h2>管理员登录</h2>
-      <p>登录后可以新增、修改、删除表格中的全部单元格内容。</p>
-      <form id="loginForm">
-        <label>邮箱<input type="email" id="emailInput" required placeholder="admin@your-company.com" /></label>
-        <label>密码<input type="password" id="passwordInput" required placeholder="请输入密码" /></label>
-        <div class="demo-login-tip">预览演示账号：<b>admin@demo.local</b> / <b>admin123</b></div>
-        <button class="primary-button full-width" type="submit">登录工作台</button>
-        <div class="form-message" id="loginMessage"></div>
+  <div class="modal-backdrop" id="authModal" hidden>
+    <section class="modal-card auth-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+      <button class="modal-close" type="button" data-close="authModal" aria-label="关闭">×</button>
+      <p class="modal-kicker" id="authKicker">ACCOUNT ACCESS</p>
+      <h2 id="authModalTitle">登录查看数据</h2>
+      <p id="authDescription">访客登录后只可查看；管理员账号可维护车辆与关联件版本。</p>
+      <form id="authForm">
+        <label>邮箱<input id="emailInput" type="email" autocomplete="email" required placeholder="name@company.com" /></label>
+        <label>密码<input id="passwordInput" type="password" autocomplete="current-password" required minlength="6" placeholder="至少 6 位" /></label>
+        <button class="primary-button full-width" id="authSubmitBtn" type="submit">登录</button>
+        <p class="form-message" id="authMessage" aria-live="polite"></p>
       </form>
-    </div>
+      <button class="modal-link" id="authModeToggle" type="button">没有账号？注册访客账号</button>
+    </section>
   </div>
 
-  <div class="modal-backdrop" id="helpModal" hidden>
-    <div class="modal-card">
-      <button class="modal-close" data-close="helpModal">×</button>
-      <div class="modal-kicker">QUICK GUIDE</div>
-      <h2>管理员说明</h2>
-      <ul class="help-list">
-        <li><span>01</span><div><strong>登录</strong><p>生产环境使用 Supabase Auth 邮箱密码登录；演示模式提供临时演示账号。</p></div></li>
-        <li><span>02</span><div><strong>编辑</strong><p>登录后双击任意单元格即可编辑，按 Enter 保存，按 Esc 取消。</p></div></li>
-        <li><span>03</span><div><strong>新增 / 删除</strong><p>使用“新增行”添加空白记录，点击行尾的删除按钮移除记录。</p></div></li>
-        <li><span>04</span><div><strong>部署</strong><p>将此目录上传到 GitHub，开启 GitHub Pages；填写 Supabase 配置即可切换到线上数据。</p></div></li>
-      </ul>
-    </div>
+  <div class="modal-backdrop" id="vehicleModal" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="vehicleModalTitle">
+      <button class="modal-close" type="button" data-close="vehicleModal" aria-label="关闭">×</button>
+      <p class="modal-kicker">VEHICLE</p>
+      <h2 id="vehicleModalTitle">新增车辆</h2>
+      <p>车辆编号必须唯一，VIN 与原始表头可按需补充。</p>
+      <form id="vehicleForm" class="data-form">
+        <input id="vehicleIdInput" type="hidden" />
+        <label>车辆编号<input id="vehicleCodeInput" required maxlength="80" placeholder="例如 IS4PR-UOV012" /></label>
+        <label>VIN<input id="vinInput" maxlength="40" placeholder="17 位 VIN（可选）" /></label>
+        <label>原始表头 / 说明<textarea id="sourceHeaderInput" rows="3" maxlength="500" placeholder="可选：Excel 中的车辆表头或补充说明"></textarea></label>
+        <button class="primary-button full-width" type="submit">保存车辆</button>
+        <p class="form-message" id="vehicleMessage" aria-live="polite"></p>
+      </form>
+    </section>
   </div>
 
-  <div class="toast" id="toast"></div>
+  <div class="modal-backdrop" id="versionModal" hidden>
+    <section class="modal-card" role="dialog" aria-modal="true" aria-labelledby="versionModalTitle">
+      <button class="modal-close" type="button" data-close="versionModal" aria-label="关闭">×</button>
+      <p class="modal-kicker">COMPONENT VERSION</p>
+      <h2 id="versionModalTitle">新增关联件版本</h2>
+      <p id="versionVehicleName">为当前车辆添加关联件记录。</p>
+      <form id="versionForm" class="data-form">
+        <input id="versionIdInput" type="hidden" />
+        <label>关联件名称<input id="componentNameInput" required maxlength="160" placeholder="例如 CCU" /></label>
+        <label>分类 / 来源段落<input id="componentCategoryInput" maxlength="160" placeholder="例如 中控屏查询版本（可选）" /></label>
+        <label>版本字段<input id="versionLabelInput" required maxlength="240" placeholder="例如 F194 / Supplier ECU Software Reference Number" /></label>
+        <label>版本值<textarea id="versionValueInput" rows="3" maxlength="1000" placeholder="填写该车对应的版本号或状态"></textarea></label>
+        <label>备注<textarea id="versionNoteInput" rows="3" maxlength="2000" placeholder="基线、刷写或其他说明（可选）"></textarea></label>
+        <button class="primary-button full-width" type="submit">保存版本记录</button>
+        <p class="form-message" id="versionMessage" aria-live="polite"></p>
+      </form>
+    </section>
+  </div>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
   <script>
-    window.APP_CONFIG = { supabaseUrl: 'https://lgbrfxrtqpezojykfheu.supabase.co', supabaseAnonKey: 'sb_publishable_dVtDZ7F8YgqBU8C58hxptA_5CicqjCo' };
+    window.APP_CONFIG = {
+      supabaseUrl: 'https://lgbrfxrtqpezojykfheu.supabase.co',
+      supabaseAnonKey: 'sb_publishable_dVtDZ7F8YgqBU8C58hxptA_5CicqjCo'
+    };
   </script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="app.js"></script>
 </body>
 </html>
-

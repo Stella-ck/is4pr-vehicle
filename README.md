@@ -1,37 +1,21 @@
-﻿# IS4PR 关联件工作台
+# IS4PR 车辆关联件管理
 
-这是根据 Excel《IS4PR车辆管理表.xlsx》中以下两个工作表制作的静态网站预览：
+这个静态网站将 Excel《IS4PR车辆管理表.xlsx》的 `关联件管理` 工作表转换为“车辆 → 关联件 → 版本字段”的结构：
 
-- 关联件影响问题（136 列，线上数据放在 Supabase；仓库仅保留脱敏演示数据）
-- 关联件管理（21 列，线上数据放在 Supabase；仓库仅保留脱敏演示数据）
+- 车辆以卡片方式展示；点击后查看该车全部关联件版本。
+- 访客注册、登录后只有查看与导出权限。
+- `admin` 角色可新增、编辑、删除车辆和每条关联件版本记录。
+- 生产数据保存在 Supabase；前端不保存服务角色密钥。
+- 旧的“关联件影响问题”界面已从网站移除。
 
-## 已实现
+仓库中的 `data/vehicle-components.demo.json` 仅包含脱敏演示数据。由 Excel 提取的完整数据输出到 `data/vehicle-components.local.json`，已被 `.gitignore` 忽略，不会提交到 GitHub。
 
-- 饱和紫 / 蓝 / 青配色的响应式工作台界面
-- 两个工作表切换
-- 全局关键词搜索、常用状态筛选、记录统计
-- 普通用户无需登录即可查看
-- 管理员登录后可双击编辑任意单元格
-- 管理员可新增行、删除行、导出当前视图
-- Supabase Auth 邮箱密码登录
-- Supabase 数据库存储、RLS 权限控制
-- GitHub Pages 可直接托管的静态前端
+## Supabase 初始化
 
-## 预览
-
-直接双击 `index.html` 可能会被浏览器的本地文件安全策略拦截 JSON 加载。可以在此目录启动任意静态服务器，或直接把整个目录上传到 GitHub Pages。预览演示账号：
-
-- 邮箱：`admin@demo.local`
-- 密码：`admin123`
-
-演示模式会把编辑结果保存在浏览器的 localStorage 中，不会写入线上数据库。
-
-## 接入 Supabase
-
-1. 在 Supabase 建立项目。
-2. 打开 SQL Editor，执行 `supabase/schema.sql`。
-3. 在 Authentication → Users 中创建管理员邮箱账号。
-4. 首次登录后，在 SQL Editor 将账号设为管理员：
+1. 在 Supabase 的 SQL Editor 中执行 [`supabase/schema.sql`](supabase/schema.sql)。它会创建 `vehicles`、`vehicle_component_versions`、用户角色和 RLS 策略。
+2. 如需彻底删除旧站的“关联件影响问题”远端记录，再执行 [`supabase/remove-legacy-issue-data.sql`](supabase/remove-legacy-issue-data.sql)。该脚本删除旧的 `sheet-1` 配置及其级联行数据。
+3. 使用网站右上角“登录查看”中的“注册访客账号”创建账号，或在 Supabase Authentication 中创建账号。
+4. 将需要编辑权限的账号设置为管理员：
 
    ```sql
    update public.profiles
@@ -39,42 +23,44 @@
    where email = 'your-admin@example.com';
    ```
 
-5. 安装依赖并导入 Excel 种子数据：
+5. 在 Supabase Authentication 的 URL Configuration 中加入 GitHub Pages 地址，例如 `https://stella-ck.github.io/is4pr-vehicle/`，以便邮箱验证后返回网站。
 
-   ```bash
-   npm install
-   set SUPABASE_URL=https://your-project.supabase.co
-   set SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-   npm run import-seed -- "C:\\path\\to\\full-seed-data.json"
-   ```
+RLS 只允许已登录用户读取车辆数据；插入、修改、删除仅允许 `admin` 角色。前端的 `window.APP_CONFIG` 只使用 anon public key，`SUPABASE_SERVICE_ROLE_KEY` 只能在本地导入时使用。
 
-   `SUPABASE_SERVICE_ROLE_KEY` 只用于本地导入，绝不能放到前端或 GitHub Pages。
+## 从 Excel 导入
 
-6. 编辑 `index.html` 中的 `window.APP_CONFIG`：
+在项目根目录运行：
 
-   ```js
-   window.APP_CONFIG = {
-     supabaseUrl: 'https://your-project.supabase.co',
-     supabaseAnonKey: 'your-anon-public-key'
-   };
-   ```
+```powershell
+npm run build-vehicle-data -- -SourceWorkbook "C:\Users\xiaojia.liu.ext\Desktop\work\4PR\【M】IS4PR车辆管理表.xlsx"
+```
 
-   前端只放 Supabase anon public key；RLS 会阻止未登录用户写入。
+脚本会识别第 2 行的 IS4PR 车辆表头，并将每辆车列中的版本值展开成 `data/vehicle-components.local.json`。当前工作簿会生成 13 辆车的关联件版本记录。
 
-## 部署到 GitHub Pages
+然后导入到 Supabase：
 
-1. 新建 GitHub 仓库，例如 `is4pr-linked-parts-portal`。
-2. 将本目录内的文件上传到仓库根目录。
-3. 在仓库 Settings → Pages 中选择 `Deploy from a branch`、`main`、`/root`。
-4. 等待 GitHub Pages 完成发布。
-5. 在 Supabase Authentication → URL Configuration 中把 GitHub Pages 地址加入 Site URL / Redirect URLs。
+```powershell
+$env:SUPABASE_URL = "https://your-project.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "your-service-role-key"
+npm run import-vehicle-data -- .\data\vehicle-components.local.json --replace
+```
 
-如果后续要增加附件、图片、操作审计日志，可以继续使用 Supabase Storage 和 `audit_logs` 表扩展。
+默认导入会更新同一“车辆 + 关联件 + 版本字段”的记录，并保留未出现在本次文件中的旧记录。加上 `--replace` 会先清空本次导入车辆的所有关联件版本，再写入最新 Excel 内容，适合完整同步。
 
+## 本地预览与部署
 
-> 安全说明：GitHub 仓库只放脱敏演示数据。Excel 全量数据保留在本地预览包中，应通过 scripts/import-seed.mjs 导入 Supabase，不建议直接提交到公开仓库。
+安装依赖后，可用任意静态服务器预览：
 
+```powershell
+npm install
+npx serve .
+```
 
+在未完成 Supabase 初始化前，可追加 `?demo=1` 强制查看脱敏卡片预览。也可以直接部署整个目录到 GitHub Pages。`index.html` 已包含前端 Supabase 配置；若切换 Supabase 项目，只需替换其中的 `supabaseUrl` 和 `supabaseAnonKey`。不要把本地 Excel、`data/vehicle-components.local.json` 或服务角色密钥提交到 GitHub。
 
-仓库前端不携带 Excel 数据文件；未配置 Supabase 时显示内置脱敏演示数据，配置 Supabase 后直接读取数据库。
+## 维护入口
 
+- 网站右上角：登录、退出、刷新数据。
+- 车辆卡片：按车辆编号、VIN 或关联件关键词搜索。
+- 管理员：新增车辆，编辑或删除车辆；在车辆详情中新增、编辑、删除任意版本字段。
+- 所有已登录用户：导出当前车辆的 CSV 版本清单。

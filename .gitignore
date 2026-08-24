@@ -1,0 +1,4 @@
+data/*.local.json
+.env
+.env.*
+!data/vehicle-components.demo.json

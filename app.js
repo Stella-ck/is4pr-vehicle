@@ -1,93 +1,89 @@
-﻿const state = {
-  seed: null,
-  sheets: [],
-  activeIndex: 0,
-  rows: [],
-  isAdmin: false,
-  user: null,
+const state = {
   supabase: null,
   remote: false,
+  showDemo: false,
+  user: null,
+  isAdmin: false,
+  vehicles: [],
+  records: [],
+  selectedVehicleId: null,
   query: '',
-  filter: 'all'
+  authMode: 'login'
 };
 
 const $ = (id) => document.getElementById(id);
-const sheetIcon = (index) => index === 0 ? '⌁' : '◈';
-const activeSheet = () => state.sheets[state.activeIndex];
 const text = (value) => value == null ? '' : String(value);
-const rowText = (row) => (row.cells || []).map(text).join(' ').toLowerCase();
+const clean = (value) => text(value).trim();
+const escapeHtml = (value) => text(value)
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#39;');
+const multiline = (value, empty = '—') => {
+  const content = clean(value);
+  return content ? escapeHtml(content).replaceAll('\n', '<br>') : `<span class="muted-value">${empty}</span>`;
+};
 const escapeCsv = (value) => `"${text(value).replaceAll('"', '""')}"`;
+const canManage = () => state.remote && !state.showDemo && state.isAdmin;
+const needsLogin = () => state.remote && !state.showDemo && !state.user;
 
 async function boot() {
   bindEvents();
-  await loadSeed();
+  await loadDemo();
   setupSupabase();
-  renderAll();
   await restoreSession();
-  if (state.remote) await loadRemote();
-  renderAll();
-}
 
-async function loadSeed() {
-  try {
-    const response = await fetch('data/seed-data.json');
-    if (!response.ok) throw new Error('demo seed not found');
-    state.seed = await response.json();
-  } catch (_error) {
-    state.seed = getDemoSeed();
+  if (state.remote) {
+    if (state.user) await loadRemote();
+    else useDataset({ vehicles: [], records: [] }, false);
   }
-  state.sheets = state.seed.sheets;
-  state.rows = state.sheets[0].rows.map(cloneRow);
-}
 
-function getDemoSeed() {
-  return {
-    source: 'demo-preview',
-    sheets: [
-      { key: 'sheet-1', name: '关联件影响问题', columns: [
-        { index: 0, label: '车辆' }, { index: 1, label: '状态' }, { index: 2, label: '阶段' }, { index: 3, label: '可用功能' }, { index: 4, label: '负责人' }
-      ], rows: [
-        { rowIndex: 1, cells: ['IS4PR-DEMO-001', '已反馈', 'EP车', 'All', '项目组'] },
-        { rowIndex: 2, cells: ['IS4PR-DEMO-002', '待跟进', '集成', 'PAD / 车机', '联调负责人'] },
-        { rowIndex: 3, cells: ['IS4PR-DEMO-003', '正常', '量产', '泊车', '验证负责人'] }
-      ] },
-      { key: 'sheet-2', name: '关联件管理', columns: [
-        { index: 0, label: '序号' }, { index: 1, label: '条目' }, { index: 2, label: '功能状态' }, { index: 3, label: '车型 A' }, { index: 4, label: '备注' }
-      ], rows: [
-        { rowIndex: 1, cells: ['1', '临牌日期', '正常', '已配置', '演示数据'] },
-        { rowIndex: 2, cells: ['2', '匿名 ID', '待确认', '待更新', '演示数据'] },
-        { rowIndex: 3, cells: ['3', '车身参数', '已完成', '已同步', '演示数据'] }
-      ] }
-    ]
-  };
+  renderAll();
 }
 
 function setupSupabase() {
   const config = window.APP_CONFIG || {};
-  if (config.supabaseUrl && config.supabaseAnonKey && window.supabase) {
-    state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
-    state.remote = true;
-    $('connectionLabel').textContent = 'Supabase 在线';
-    $('syncLabel').textContent = 'Supabase 数据';
-  }
+  if (new URLSearchParams(window.location.search).get('demo') === '1') return;
+  if (!config.supabaseUrl || !config.supabaseAnonKey || !window.supabase) return;
+  state.supabase = window.supabase.createClient(config.supabaseUrl, config.supabaseAnonKey);
+  state.remote = true;
+  state.showDemo = false;
 }
 
 async function restoreSession() {
   if (!state.supabase) return;
-  const { data } = await state.supabase.auth.getSession();
-  if (data.session) await applySession(data.session);
-  state.supabase.auth.onAuthStateChange(async (_event, session) => {
-    if (session) await applySession(session); else clearSession();
-    renderAll();
+  try {
+    const { data, error } = await state.supabase.auth.getSession();
+    if (error) throw error;
+    if (data.session) await applySession(data.session);
+  } catch (error) {
+    console.warn('Unable to restore Supabase session.', error);
+  }
+
+  state.supabase.auth.onAuthStateChange((_event, session) => {
+    window.setTimeout(async () => {
+      if (session) {
+        await applySession(session);
+        await loadRemote();
+      } else {
+        clearSession();
+        useDataset({ vehicles: [], records: [] }, false);
+      }
+      renderAll();
+    }, 0);
   });
 }
 
 async function applySession(session) {
   state.user = session.user;
   state.isAdmin = false;
-  const { data: profile } = await state.supabase.from('profiles').select('role').eq('id', session.user.id).maybeSingle();
-  state.isAdmin = profile?.role === 'admin';
-  showToast(state.isAdmin ? '管理员已登录' : '已登录，当前为只读用户');
+  const { data, error } = await state.supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', session.user.id)
+    .maybeSingle();
+  if (!error) state.isAdmin = data?.role === 'admin';
 }
 
 function clearSession() {
@@ -95,235 +91,552 @@ function clearSession() {
   state.isAdmin = false;
 }
 
-async function loadRemote() {
+async function loadDemo() {
   try {
-    const configs = await state.supabase.from('sheet_configs').select('key,name,columns,sort_order').order('sort_order');
-    if (configs.error) throw configs.error;
-    state.sheets = configs.data.map((item) => ({ key: item.key, name: item.name, columns: item.columns || [], rows: [] }));
-    if (!state.sheets.length) throw new Error('没有找到工作表配置');
-    await loadActiveRows();
+    const response = await fetch('data/vehicle-components.demo.json', { cache: 'no-store' });
+    if (!response.ok) throw new Error('Demo data is unavailable.');
+    useDataset(await response.json(), true);
   } catch (error) {
-    console.warn(error);
-    state.remote = false;
-    $('connectionLabel').textContent = '演示数据模式';
-    $('syncLabel').textContent = '本地预览';
-    state.sheets = state.seed.sheets;
-    state.rows = state.sheets[0].rows.map(cloneRow);
-    showToast('线上数据未配置，已切换到演示模式');
+    console.warn('Unable to load demo data.', error);
+    useDataset(getFallbackDemo(), true);
   }
 }
 
-async function loadActiveRows() {
-  const sheet = activeSheet();
-  if (!state.remote || !state.supabase) {
-    state.rows = sheet.rows.map(cloneRow);
-    return;
-  }
-  const { data, error } = await state.supabase.from('sheet_rows').select('id,row_index,cells').eq('sheet_key', sheet.key).order('row_index');
-  if (error) throw error;
-  state.rows = (data || []).map((row) => ({ id: row.id, rowIndex: row.row_index, cells: Array.isArray(row.cells) ? row.cells : [] }));
+function getFallbackDemo() {
+  return {
+    vehicles: [
+      { id: 'demo-001', vehicleCode: 'IS4PR-DEMO-001', vin: 'DEMO0000000000001' },
+      { id: 'demo-002', vehicleCode: 'IS4PR-DEMO-002', vin: 'DEMO0000000000002' }
+    ],
+    records: [
+      { id: 'demo-001-ccu', vehicleId: 'demo-001', componentName: 'CCU', versionLabel: 'F194 / 软件版本', versionValue: 'DEMO-SW-1.0.0' },
+      { id: 'demo-001-ipd', vehicleId: 'demo-001', componentName: 'IPD', versionLabel: '配置字', versionValue: 'DEMO-CONFIG-A' },
+      { id: 'demo-002-ccu', vehicleId: 'demo-002', componentName: 'CCU', versionLabel: 'F194 / 软件版本', versionValue: 'DEMO-SW-1.1.0' }
+    ]
+  };
 }
 
-function cloneRow(row) { return { ...row, cells: [...(row.cells || [])] }; }
+function useDataset(dataset, showDemo) {
+  state.showDemo = showDemo;
+  state.vehicles = (dataset.vehicles || []).map((vehicle, index) => ({
+    id: text(vehicle.id || vehicle.vehicleId || `local-vehicle-${index + 1}`),
+    vehicleCode: clean(vehicle.vehicleCode ?? vehicle.vehicle_code),
+    vin: clean(vehicle.vin),
+    sourceHeader: clean(vehicle.sourceHeader ?? vehicle.source_header),
+    createdAt: vehicle.createdAt ?? vehicle.created_at,
+    updatedAt: vehicle.updatedAt ?? vehicle.updated_at
+  })).filter((vehicle) => vehicle.vehicleCode);
+
+  state.records = (dataset.records || []).map((record, index) => ({
+    id: text(record.id || `local-record-${index + 1}`),
+    vehicleId: text(record.vehicleId ?? record.vehicle_id),
+    componentName: clean(record.componentName ?? record.component_name),
+    componentCategory: clean(record.componentCategory ?? record.component_category),
+    versionLabel: clean(record.versionLabel ?? record.version_label),
+    versionValue: clean(record.versionValue ?? record.version_value),
+    note: clean(record.note),
+    sourceRow: record.sourceRow ?? record.source_row,
+    sourceColumn: record.sourceColumn ?? record.source_column
+  })).filter((record) => record.vehicleId && record.componentName && record.versionLabel);
+
+  if (!state.vehicles.some((vehicle) => vehicle.id === state.selectedVehicleId)) {
+    state.selectedVehicleId = state.vehicles[0]?.id || null;
+  }
+}
+
+async function loadRemote() {
+  if (!state.supabase || !state.user) return;
+  try {
+    const [vehicles, records] = await Promise.all([
+      fetchAll('vehicles', 'id,vehicle_code,vin,source_header,created_at,updated_at', ['vehicle_code']),
+      fetchAll('vehicle_component_versions', 'id,vehicle_id,component_name,component_category,version_label,version_value,note,source_row,source_column', ['vehicle_id', 'component_name', 'version_label'])
+    ]);
+    useDataset({ vehicles, records }, false);
+  } catch (error) {
+    console.warn('Unable to load vehicle records.', error);
+    await loadDemo();
+    showToast('Supabase 数据表尚未就绪，正在显示脱敏演示数据');
+  }
+}
+
+async function fetchAll(table, fields, orderColumns) {
+  const pageSize = 1000;
+  const result = [];
+  let offset = 0;
+
+  while (true) {
+    let request = state.supabase.from(table).select(fields);
+    orderColumns.forEach((column) => {
+      request = request.order(column, { ascending: true });
+    });
+    const { data, error } = await request.range(offset, offset + pageSize - 1);
+    if (error) throw error;
+    const page = data || [];
+    result.push(...page);
+    if (page.length < pageSize) return result;
+    offset += pageSize;
+  }
+}
 
 function bindEvents() {
-  $('searchInput').addEventListener('input', (event) => { state.query = event.target.value.trim().toLowerCase(); renderTable(); });
-  $('clearSearchBtn').addEventListener('click', () => { state.query = ''; $('searchInput').value = ''; state.filter = 'all'; renderAll(); });
-  $('refreshBtn').addEventListener('click', async () => { if (state.remote) await loadActiveRows(); renderAll(); showToast('数据已刷新'); });
-  $('loginBtn').addEventListener('click', () => state.user ? signOut() : openModal('loginModal'));
-  $('loginForm').addEventListener('submit', handleLogin);
-  $('addRowBtn').addEventListener('click', addRow);
-  $('exportBtn').addEventListener('click', exportCsv);
-  $('adminHelpBtn').addEventListener('click', () => openModal('helpModal'));
-  document.querySelectorAll('[data-close]').forEach((button) => button.addEventListener('click', () => closeModal(button.dataset.close)));
-  document.querySelectorAll('.modal-backdrop').forEach((backdrop) => backdrop.addEventListener('click', (event) => { if (event.target === backdrop) backdrop.hidden = true; }));
+  $('searchInput').addEventListener('input', (event) => {
+    state.query = clean(event.target.value).toLowerCase();
+    renderVehicleCards();
+  });
+  $('clearSearchBtn').addEventListener('click', () => {
+    state.query = '';
+    $('searchInput').value = '';
+    renderVehicleCards();
+  });
+  $('refreshBtn').addEventListener('click', refreshData);
+  $('authBtn').addEventListener('click', () => {
+    if (state.user) signOut();
+    else openAuthModal('login');
+  });
+  $('addVehicleBtn').addEventListener('click', () => openVehicleModal());
+  $('authForm').addEventListener('submit', handleAuth);
+  $('authModeToggle').addEventListener('click', () => openAuthModal(state.authMode === 'login' ? 'register' : 'login'));
+  $('vehicleForm').addEventListener('submit', saveVehicle);
+  $('versionForm').addEventListener('submit', saveVersion);
+  document.querySelectorAll('[data-close]').forEach((button) => {
+    button.addEventListener('click', () => closeModal(button.dataset.close));
+  });
+  document.querySelectorAll('.modal-backdrop').forEach((backdrop) => {
+    backdrop.addEventListener('click', (event) => {
+      if (event.target === backdrop) closeModal(backdrop.id);
+    });
+  });
+  document.addEventListener('click', handleAction);
+}
+
+async function handleAction(event) {
+  const trigger = event.target.closest('[data-action]');
+  if (!trigger) return;
+  const { action } = trigger.dataset;
+
+  if (action === 'open-auth') openAuthModal('login');
+  if (action === 'select-vehicle') {
+    state.selectedVehicleId = trigger.dataset.vehicleId;
+    renderVehicleCards();
+    renderDetail();
+  }
+  if (action === 'edit-vehicle') openVehicleModal(getSelectedVehicle());
+  if (action === 'delete-vehicle') await deleteVehicle(getSelectedVehicle());
+  if (action === 'add-version') openVersionModal();
+  if (action === 'edit-version') openVersionModal(findRecord(trigger.dataset.versionId));
+  if (action === 'delete-version') await deleteVersion(findRecord(trigger.dataset.versionId));
+  if (action === 'export-vehicle') exportVehicleCsv();
+}
+
+async function refreshData() {
+  if (state.remote && state.user && !state.showDemo) {
+    await loadRemote();
+    renderAll();
+    showToast('数据已刷新');
+    return;
+  }
+  if (!state.remote) {
+    await loadDemo();
+    renderAll();
+    showToast('演示数据已刷新');
+    return;
+  }
+  openAuthModal('login');
 }
 
 function renderAll() {
-  renderNav();
-  renderMetrics();
-  renderToolbar();
-  renderFilters();
-  renderTable();
+  renderConnection();
   renderUser();
+  renderMetrics();
+  renderVehicleCards();
+  renderDetail();
+  $('addVehicleBtn').hidden = !canManage();
 }
 
-function renderNav() {
-  $('sheetNav').innerHTML = state.sheets.map((sheet, index) => `
-    <button class="nav-item ${index === state.activeIndex ? 'active' : ''}" data-sheet-index="${index}">
-      <span class="nav-icon">${sheetIcon(index)}</span>
-      <span class="nav-copy"><strong>${text(sheet.name)}</strong><small>${index === 0 ? '问题追踪 · 136 列' : '状态台账 · 21 列'}</small></span>
-    </button>`).join('');
-  document.querySelectorAll('[data-sheet-index]').forEach((button) => button.addEventListener('click', async () => {
-    state.activeIndex = Number(button.dataset.sheetIndex);
-    state.filter = 'all'; state.query = ''; $('searchInput').value = '';
-    try { await loadActiveRows(); } catch (error) { showToast('加载失败，已保留当前数据'); }
-    renderAll();
-  }));
+function renderConnection() {
+  const label = state.showDemo
+    ? '脱敏演示数据'
+    : state.remote && state.user
+      ? 'Supabase 已连接'
+      : state.remote
+        ? '请登录后读取数据'
+        : '本地演示模式';
+  $('connectionLabel').textContent = label;
 }
 
-function renderToolbar() {
-  const sheet = activeSheet();
-  $('currentSheetCrumb').textContent = sheet.name;
-  $('tableTitle').textContent = sheet.name;
-  $('tableSubtitle').textContent = state.activeIndex === 0 ? '问题反馈、处理节点与车辆状态' : '关联件软件状态、车辆矩阵与配置记录';
-  $('addRowBtn').hidden = !state.isAdmin;
+function renderUser() {
+  const label = state.isAdmin ? '管理员 · 退出' : state.user ? '访客 · 退出' : '登录查看';
+  $('userLabel').textContent = label;
+  $('avatarLabel').textContent = state.isAdmin ? '管' : state.user ? '访' : '登';
 }
 
 function renderMetrics() {
-  const filled = state.rows.reduce((total, row) => total + (row.cells || []).filter((cell) => text(cell).trim()).length, 0);
-  const pending = state.rows.filter((row) => /待|问题|未|pending|todo/i.test(rowText(row))).length;
-  const done = state.rows.filter((row) => /已完成|正常|ok|完成|closed|已解决/i.test(rowText(row))).length;
-  const cards = [
-    ['当前记录', state.rows.length, '▦', '#4363ff', '#eaf0ff'],
-    ['有效单元格', filled.toLocaleString(), '✦', '#e646a1', '#fff0f8'],
-    ['待跟进记录', pending, '!', '#ff974e', '#fff5e9'],
-    ['已处理 / 正常', done, '✓', '#1dbf8b', '#e9fbf4']
+  const accessible = !needsLogin();
+  const vehicleCount = state.vehicles.length;
+  const componentCount = new Set(state.records.map((record) => record.componentName)).size;
+  const versionCount = state.records.length;
+  const vinCount = state.vehicles.filter((vehicle) => vehicle.vin).length;
+  const metrics = [
+    ['车辆', vehicleCount, '▦', 'violet'],
+    ['关联件', componentCount, '◈', 'blue'],
+    ['版本记录', versionCount, '⌁', 'teal'],
+    ['已登记 VIN', vinCount, '✓', 'orange']
   ];
-  $('metrics').innerHTML = cards.map(([label, value, icon, accent, metric]) => `<div class="metric" style="--accent:${accent};--metric:${metric}"><div class="metric-top"><span class="metric-label">${label}</span><span class="metric-icon">${icon}</span></div><strong class="metric-value">${value}</strong></div>`).join('');
+  $('metrics').innerHTML = metrics.map(([label, value, icon, tone]) => `
+    <article class="metric metric-${tone}">
+      <span class="metric-icon">${icon}</span>
+      <span class="metric-label">${label}</span>
+      <strong>${accessible ? value.toLocaleString() : '—'}</strong>
+    </article>`).join('');
 }
 
-function renderFilters() {
-  const filters = [
-    ['all', '全部'], ['vehicle', '有车辆编号'], ['pending', '待跟进'], ['done', '已完成 / 正常']
-  ];
-  $('filterChips').innerHTML = filters.map(([key, label]) => `<button class="filter-chip ${state.filter === key ? 'active' : ''}" data-filter="${key}">${label}</button>`).join('');
-  document.querySelectorAll('[data-filter]').forEach((button) => button.addEventListener('click', () => { state.filter = button.dataset.filter; renderFilters(); renderTable(); }));
+function filteredVehicles() {
+  if (!state.query) return state.vehicles;
+  return state.vehicles.filter((vehicle) => vehicleSearchText(vehicle).includes(state.query));
 }
 
-function filteredRows() {
-  return state.rows.filter((row) => {
-    const haystack = rowText(row);
-    const queryMatch = !state.query || haystack.includes(state.query);
-    const filterMatch = state.filter === 'all' ||
-      (state.filter === 'vehicle' && /is4pr-|vin|车辆/.test(haystack)) ||
-      (state.filter === 'pending' && /待|问题|未|pending|todo/.test(haystack)) ||
-      (state.filter === 'done' && /已完成|正常|ok|完成|closed|已解决/.test(haystack));
-    return queryMatch && filterMatch;
-  });
+function vehicleSearchText(vehicle) {
+  const records = getRecords(vehicle.id);
+  return [
+    vehicle.vehicleCode,
+    vehicle.vin,
+    vehicle.sourceHeader,
+    ...records.flatMap((record) => [record.componentName, record.componentCategory, record.versionLabel, record.versionValue, record.note])
+  ].join(' ').toLowerCase();
 }
 
-function renderTable() {
-  const sheet = activeSheet();
-  const columns = sheet.columns || [];
-  const rows = filteredRows();
-  $('resultCount').textContent = rows.length;
-  $('tableHead').innerHTML = `<tr><th>#</th>${columns.map((column) => `<th title="${text(column.label)}">${text(column.label)}</th>`).join('')}${state.isAdmin ? '<th class="row-actions">操作</th>' : ''}</tr>`;
-  $('tableBody').innerHTML = rows.map((row) => {
-    const cells = columns.map((_, index) => `<td class="${state.isAdmin ? 'editable' : ''}" data-row-id="${text(row.id || row.rowIndex)}" data-cell-index="${index}">${formatCell(row.cells?.[index])}</td>`).join('');
-    return `<tr><td>${row.rowIndex ?? ''}</td>${cells}${state.isAdmin ? `<td class="row-actions"><button class="delete-row" data-delete-row="${text(row.id || row.rowIndex)}">删除</button></td>` : ''}</tr>`;
+function renderVehicleCards() {
+  const empty = $('vehicleEmpty');
+  if (needsLogin()) {
+    $('vehicleGrid').innerHTML = '';
+    empty.hidden = false;
+    empty.innerHTML = `<span class="empty-icon">⌁</span><h3>登录后查看车辆数据</h3><p>访客可查看全部车辆与关联件版本；管理员可编辑保存。</p><button class="primary-button" type="button" data-action="open-auth">登录或注册</button>`;
+    return;
+  }
+
+  const vehicles = filteredVehicles();
+  if (!vehicles.length) {
+    $('vehicleGrid').innerHTML = '';
+    empty.hidden = false;
+    empty.innerHTML = `<span class="empty-icon">◌</span><h3>${state.vehicles.length ? '没有匹配的车辆' : '暂无车辆数据'}</h3><p>${state.vehicles.length ? '请尝试更换关键词。' : '管理员可新增车辆或导入 Excel 数据。'}</p>`;
+    return;
+  }
+
+  empty.hidden = true;
+  $('vehicleGrid').innerHTML = vehicles.map((vehicle) => {
+    const records = getRecords(vehicle.id);
+    const componentCount = new Set(records.map((record) => record.componentName)).size;
+    const selected = vehicle.id === state.selectedVehicleId;
+    return `<button class="vehicle-card ${selected ? 'selected' : ''}" type="button" data-action="select-vehicle" data-vehicle-id="${escapeHtml(vehicle.id)}" aria-pressed="${selected}">
+      <span class="card-top"><span class="vehicle-state"><i></i>已归档</span><span class="card-arrow">→</span></span>
+      <strong>${escapeHtml(vehicle.vehicleCode)}</strong>
+      <span class="vehicle-vin">${vehicle.vin ? `VIN · ${escapeHtml(vehicle.vin)}` : 'VIN 待补充'}</span>
+      <span class="card-divider"></span>
+      <span class="card-stats"><b>${componentCount}</b> 个关联件 <em>·</em> <b>${records.length}</b> 条版本</span>
+    </button>`;
   }).join('');
-  $('emptyState').hidden = rows.length !== 0;
-  if (state.isAdmin) {
-    document.querySelectorAll('td.editable').forEach((cell) => cell.addEventListener('dblclick', beginEdit));
-    document.querySelectorAll('[data-delete-row]').forEach((button) => button.addEventListener('click', () => deleteRow(button.dataset.deleteRow)));
+}
+
+function renderDetail() {
+  const panel = $('detailPanel');
+  if (needsLogin()) {
+    panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>权限保护的数据区</h2><p>请使用访客或管理员账号登录后查看车辆的关联件信息。</p></div>`;
+    return;
   }
-}
 
-function formatCell(value) {
-  const valueText = text(value);
-  if (!valueText.trim()) return '<span style="color:#c7cdd9">—</span>';
-  if (/^(已完成|正常|ok|已解决|完成)$/i.test(valueText.trim())) return `<span class="cell-status cell-good">${valueText}</span>`;
-  if (/待|问题|未|pending|todo/i.test(valueText)) return `<span class="cell-status cell-warn">${valueText}</span>`;
-  return valueText.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('\n', '<br>');
-}
-
-function beginEdit(event) {
-  if (!state.isAdmin || event.currentTarget.querySelector('textarea')) return;
-  const cell = event.currentTarget;
-  const rowId = cell.dataset.rowId;
-  const cellIndex = Number(cell.dataset.cellIndex);
-  const row = state.rows.find((item) => String(item.id || item.rowIndex) === String(rowId));
-  if (!row) return;
-  const original = text(row.cells[cellIndex]);
-  const input = document.createElement('textarea');
-  input.className = 'cell-input'; input.value = original; input.rows = Math.min(5, Math.max(2, original.split('\n').length));
-  cell.innerHTML = ''; cell.appendChild(input); input.focus(); input.select();
-  let done = false;
-  const commit = async (save) => {
-    if (done) return; done = true;
-    if (save && input.value !== original) await updateCell(row, cellIndex, input.value);
-    else renderTable();
-  };
-  input.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); commit(false); } if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); commit(true); } });
-  input.addEventListener('blur', () => commit(true));
-}
-
-async function updateCell(row, cellIndex, value) {
-  row.cells[cellIndex] = value;
-  if (state.remote && state.supabase && row.id) {
-    const { error } = await state.supabase.from('sheet_rows').update({ cells: row.cells }).eq('id', row.id);
-    if (error) { showToast('保存失败：请检查管理员权限'); return; }
-  } else {
-    persistDemo();
+  const vehicle = getSelectedVehicle();
+  if (!vehicle) {
+    panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>选择一辆车</h2><p>车辆的关联件版本会按控制器分组显示在这里。</p></div>`;
+    return;
   }
-  renderAll(); showToast('单元格已保存');
+
+  const records = getRecords(vehicle.id);
+  const groups = groupRecords(records);
+  panel.innerHTML = `
+    <div class="detail-header">
+      <div>
+        <p class="section-kicker">VEHICLE DETAIL</p>
+        <h2>${escapeHtml(vehicle.vehicleCode)}</h2>
+        <p class="detail-vin">${vehicle.vin ? `VIN · ${escapeHtml(vehicle.vin)}` : 'VIN 待补充'}</p>
+      </div>
+      <div class="detail-actions">
+        <button class="icon-button compact" type="button" data-action="export-vehicle" title="导出当前车辆版本清单" aria-label="导出当前车辆版本清单">⇩</button>
+        ${canManage() ? `<button class="icon-button compact" type="button" data-action="edit-vehicle" title="编辑车辆" aria-label="编辑车辆">✎</button><button class="icon-button compact danger" type="button" data-action="delete-vehicle" title="删除车辆" aria-label="删除车辆">×</button>` : ''}
+      </div>
+    </div>
+    <div class="detail-summary"><span>${groups.length} 个关联件</span><span>${records.length} 条版本记录</span>${state.showDemo ? '<span>脱敏演示</span>' : ''}</div>
+    <div class="component-list">
+      ${groups.length ? groups.map(renderComponentGroup).join('') : `<div class="component-empty"><p>该车辆暂未添加关联件版本。</p></div>`}
+    </div>
+    ${canManage() ? `<button class="secondary-button add-version" type="button" data-action="add-version">＋ 新增关联件版本</button>` : ''}`;
 }
 
-async function addRow() {
-  const sheet = activeSheet();
-  const newRow = { rowIndex: state.rows.length ? Math.max(...state.rows.map((row) => Number(row.rowIndex) || 0)) + 1 : 1, cells: sheet.columns.map(() => '') };
-  if (state.remote && state.supabase) {
-    const { data, error } = await state.supabase.from('sheet_rows').insert({ sheet_key: sheet.key, row_index: newRow.rowIndex, cells: newRow.cells }).select('id,row_index,cells').single();
-    if (error) { showToast('新增失败：请检查管理员权限'); return; }
-    newRow.id = data.id;
+function renderComponentGroup(group) {
+  const note = group.records.map((record) => record.note).find(Boolean);
+  const category = group.records.map((record) => record.componentCategory).find(Boolean);
+  return `<section class="component-group">
+    <div class="component-heading"><div><h3>${escapeHtml(group.name)}</h3>${category ? `<p>${escapeHtml(category)}</p>` : ''}</div><span>${group.records.length} 条</span></div>
+    ${note ? `<p class="component-note">${multiline(note)}</p>` : ''}
+    <div class="version-table">
+      ${group.records.map((record) => `<div class="version-row">
+        <span class="version-label">${escapeHtml(record.versionLabel)}</span>
+        <span class="version-value">${multiline(record.versionValue)}</span>
+        ${canManage() ? `<span class="version-actions"><button type="button" data-action="edit-version" data-version-id="${escapeHtml(record.id)}" title="编辑">✎</button><button type="button" data-action="delete-version" data-version-id="${escapeHtml(record.id)}" title="删除">×</button></span>` : ''}
+      </div>`).join('')}
+    </div>
+  </section>`;
+}
+
+function getRecords(vehicleId) {
+  return state.records
+    .filter((record) => record.vehicleId === vehicleId)
+    .sort((left, right) => left.componentName.localeCompare(right.componentName, 'zh-CN') || left.versionLabel.localeCompare(right.versionLabel, 'zh-CN'));
+}
+
+function groupRecords(records) {
+  const groups = new Map();
+  records.forEach((record) => {
+    if (!groups.has(record.componentName)) groups.set(record.componentName, { name: record.componentName, records: [] });
+    groups.get(record.componentName).records.push(record);
+  });
+  return [...groups.values()];
+}
+
+function getSelectedVehicle() {
+  return state.vehicles.find((vehicle) => vehicle.id === state.selectedVehicleId) || null;
+}
+
+function findRecord(id) {
+  return state.records.find((record) => record.id === id) || null;
+}
+
+function openAuthModal(mode) {
+  if (!state.supabase) {
+    showToast('未配置 Supabase，当前仅可查看脱敏演示数据');
+    return;
   }
-  state.rows.push(newRow); persistDemo(); renderAll(); showToast('已新增一行');
+  state.authMode = mode;
+  const register = mode === 'register';
+  $('authKicker').textContent = register ? 'VIEWER REGISTRATION' : 'ACCOUNT ACCESS';
+  $('authModalTitle').textContent = register ? '注册访客账号' : '登录查看数据';
+  $('authDescription').textContent = register
+    ? '注册后默认是只读访客。需要编辑权限时，请由管理员在 Supabase 中授予管理员角色。'
+    : '访客登录后只可查看；管理员账号可维护车辆与关联件版本。';
+  $('authSubmitBtn').textContent = register ? '注册访客账号' : '登录';
+  $('authModeToggle').textContent = register ? '已有账号？返回登录' : '没有账号？注册访客账号';
+  $('passwordInput').autocomplete = register ? 'new-password' : 'current-password';
+  $('authMessage').textContent = '';
+  $('authForm').reset();
+  openModal('authModal');
+  $('emailInput').focus();
 }
 
-async function deleteRow(rowKey) {
-  if (!confirm('确定删除这一整行吗？此操作不可撤销。')) return;
-  const row = state.rows.find((item) => String(item.id || item.rowIndex) === String(rowKey));
-  if (state.remote && state.supabase && row?.id) {
-    const { error } = await state.supabase.from('sheet_rows').delete().eq('id', row.id);
-    if (error) { showToast('删除失败：请检查管理员权限'); return; }
-  }
-  state.rows = state.rows.filter((item) => String(item.id || item.rowIndex) !== String(rowKey));
-  persistDemo(); renderAll(); showToast('记录已删除');
-}
-
-function persistDemo() {
-  if (state.remote) return;
-  const key = `linked-parts-${activeSheet().key}`;
-  localStorage.setItem(key, JSON.stringify(state.rows));
-}
-
-async function handleLogin(event) {
+async function handleAuth(event) {
   event.preventDefault();
-  const email = $('emailInput').value.trim(); const password = $('passwordInput').value;
-  $('loginMessage').textContent = '正在验证…';
-  if (!state.supabase && email === 'admin@demo.local' && password === 'admin123') {
-    state.isAdmin = true; state.user = { email }; closeModal('loginModal'); renderAll(); showToast('演示管理员已登录'); return;
+  if (!state.supabase) return;
+  const email = clean($('emailInput').value);
+  const password = $('passwordInput').value;
+  const message = $('authMessage');
+  const submit = $('authSubmitBtn');
+  message.textContent = '';
+  submit.disabled = true;
+
+  try {
+    if (state.authMode === 'register') {
+      const { data, error } = await state.supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}${window.location.pathname}` }
+      });
+      if (error) throw error;
+      if (!data.session) message.textContent = '注册成功，请前往邮箱完成验证后再登录。';
+      else {
+        closeModal('authModal');
+        showToast('访客账号已注册并登录');
+      }
+    } else {
+      const { error } = await state.supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      closeModal('authModal');
+      showToast('登录成功，正在读取车辆数据');
+    }
+  } catch (error) {
+    message.textContent = readableError(error);
+  } finally {
+    submit.disabled = false;
   }
-  if (!state.supabase) { $('loginMessage').textContent = '演示模式账号不正确，请使用提示中的账号。'; return; }
-  const { data, error } = await state.supabase.auth.signInWithPassword({ email, password });
-  if (error) { $('loginMessage').textContent = error.message; return; }
-  await applySession(data.session); closeModal('loginModal'); renderAll();
 }
 
 async function signOut() {
-  if (state.supabase) await state.supabase.auth.signOut();
-  clearSession(); renderAll(); showToast('已退出登录');
+  if (!state.supabase) return;
+  const { error } = await state.supabase.auth.signOut();
+  if (error) {
+    showToast(readableError(error));
+    return;
+  }
+  clearSession();
+  useDataset({ vehicles: [], records: [] }, false);
+  renderAll();
+  showToast('已退出登录');
 }
 
-function exportCsv() {
-  const sheet = activeSheet(); const rows = filteredRows();
-  const lines = [['#', ...(sheet.columns || []).map((column) => column.label)].map(escapeCsv).join(',')];
-  rows.forEach((row) => lines.push([row.rowIndex, ...(row.cells || [])].map(escapeCsv).join(',')));
-  const blob = new Blob(["\ufeff" + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
-  const url = URL.createObjectURL(blob); const anchor = document.createElement('a'); anchor.href = url; anchor.download = `${sheet.name}.csv`; anchor.click(); URL.revokeObjectURL(url); showToast('当前视图已导出');
+function openVehicleModal(vehicle = null) {
+  if (!canManage()) return;
+  $('vehicleForm').reset();
+  $('vehicleMessage').textContent = '';
+  $('vehicleIdInput').value = vehicle?.id || '';
+  $('vehicleCodeInput').value = vehicle?.vehicleCode || '';
+  $('vinInput').value = vehicle?.vin || '';
+  $('sourceHeaderInput').value = vehicle?.sourceHeader || '';
+  $('vehicleModalTitle').textContent = vehicle ? '编辑车辆' : '新增车辆';
+  openModal('vehicleModal');
+  $('vehicleCodeInput').focus();
 }
 
-function openModal(id) { $(id).hidden = false; }
-function closeModal(id) { $(id).hidden = true; }
-function renderUser() {
-  $('userLabel').textContent = state.user ? (state.isAdmin ? '管理员' : '只读用户') : '访客查看';
-  $('loginBtn').title = state.user ? '点击退出登录' : '管理员登录';
-  $('loginBtn').querySelector('.avatar').textContent = state.user ? (state.isAdmin ? '管' : '用') : '访';
-  document.querySelectorAll('.admin-only').forEach((element) => { element.hidden = !state.isAdmin; });
+async function saveVehicle(event) {
+  event.preventDefault();
+  if (!canManage()) return;
+  const id = clean($('vehicleIdInput').value);
+  const payload = {
+    vehicle_code: clean($('vehicleCodeInput').value),
+    vin: clean($('vinInput').value) || null,
+    source_header: clean($('sourceHeaderInput').value) || null
+  };
+  const message = $('vehicleMessage');
+  message.textContent = '';
+
+  try {
+    let response;
+    if (id) response = await state.supabase.from('vehicles').update(payload).eq('id', id).select('id').single();
+    else response = await state.supabase.from('vehicles').insert(payload).select('id').single();
+    if (response.error) throw response.error;
+    state.selectedVehicleId = response.data.id;
+    await loadRemote();
+    closeModal('vehicleModal');
+    renderAll();
+    showToast(id ? '车辆已更新' : '车辆已新增');
+  } catch (error) {
+    message.textContent = readableError(error);
+  }
 }
+
+function openVersionModal(record = null) {
+  if (!canManage()) return;
+  const vehicle = getSelectedVehicle();
+  if (!vehicle) return;
+  $('versionForm').reset();
+  $('versionMessage').textContent = '';
+  $('versionIdInput').value = record?.id || '';
+  $('componentNameInput').value = record?.componentName || '';
+  $('componentCategoryInput').value = record?.componentCategory || '';
+  $('versionLabelInput').value = record?.versionLabel || '';
+  $('versionValueInput').value = record?.versionValue || '';
+  $('versionNoteInput').value = record?.note || '';
+  $('versionModalTitle').textContent = record ? '编辑关联件版本' : '新增关联件版本';
+  $('versionVehicleName').textContent = `车辆：${vehicle.vehicleCode}`;
+  openModal('versionModal');
+  $('componentNameInput').focus();
+}
+
+async function saveVersion(event) {
+  event.preventDefault();
+  if (!canManage()) return;
+  const vehicle = getSelectedVehicle();
+  if (!vehicle) return;
+  const id = clean($('versionIdInput').value);
+  const payload = {
+    vehicle_id: vehicle.id,
+    component_name: clean($('componentNameInput').value),
+    component_category: clean($('componentCategoryInput').value) || null,
+    version_label: clean($('versionLabelInput').value),
+    version_value: clean($('versionValueInput').value) || null,
+    note: clean($('versionNoteInput').value) || null
+  };
+  const message = $('versionMessage');
+  message.textContent = '';
+
+  try {
+    let response;
+    if (id) response = await state.supabase.from('vehicle_component_versions').update(payload).eq('id', id).select('id').single();
+    else response = await state.supabase.from('vehicle_component_versions').insert(payload).select('id').single();
+    if (response.error) throw response.error;
+    await loadRemote();
+    closeModal('versionModal');
+    renderAll();
+    showToast(id ? '版本记录已更新' : '版本记录已新增');
+  } catch (error) {
+    message.textContent = readableError(error);
+  }
+}
+
+async function deleteVehicle(vehicle) {
+  if (!canManage() || !vehicle) return;
+  if (!window.confirm(`确定删除车辆 ${vehicle.vehicleCode} 及其全部关联件版本吗？此操作无法撤销。`)) return;
+  const { error } = await state.supabase.from('vehicles').delete().eq('id', vehicle.id);
+  if (error) {
+    showToast(readableError(error));
+    return;
+  }
+  state.selectedVehicleId = null;
+  await loadRemote();
+  renderAll();
+  showToast('车辆及关联件版本已删除');
+}
+
+async function deleteVersion(record) {
+  if (!canManage() || !record) return;
+  if (!window.confirm(`确定删除「${record.componentName} · ${record.versionLabel}」吗？`)) return;
+  const { error } = await state.supabase.from('vehicle_component_versions').delete().eq('id', record.id);
+  if (error) {
+    showToast(readableError(error));
+    return;
+  }
+  await loadRemote();
+  renderAll();
+  showToast('版本记录已删除');
+}
+
+function exportVehicleCsv() {
+  const vehicle = getSelectedVehicle();
+  if (!vehicle) return;
+  const rows = [
+    ['车辆编号', 'VIN', '关联件', '分类', '版本字段', '版本值', '备注'],
+    ...getRecords(vehicle.id).map((record) => [vehicle.vehicleCode, vehicle.vin, record.componentName, record.componentCategory, record.versionLabel, record.versionValue, record.note])
+  ];
+  const csv = `\uFEFF${rows.map((row) => row.map(escapeCsv).join(',')).join('\r\n')}`;
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `${vehicle.vehicleCode.replace(/[^\w-]+/g, '_')}-关联件版本.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+function openModal(id) {
+  $(id).hidden = false;
+}
+
+function closeModal(id) {
+  $(id).hidden = true;
+}
+
+function readableError(error) {
+  const message = clean(error?.message || error);
+  if (/duplicate key|unique constraint/i.test(message)) return '该记录已存在，请检查车辆编号或版本字段。';
+  if (/row-level security|permission denied/i.test(message)) return '没有管理员权限，无法保存修改。';
+  if (/invalid login credentials/i.test(message)) return '邮箱或密码不正确。';
+  if (/email not confirmed/i.test(message)) return '请先完成邮箱验证。';
+  return message || '操作失败，请稍后重试。';
+}
+
 let toastTimer;
-function showToast(message) { const toast = $('toast'); toast.textContent = message; toast.classList.add('show'); clearTimeout(toastTimer); toastTimer = setTimeout(() => toast.classList.remove('show'), 2400); }
+function showToast(message) {
+  const toast = $('toast');
+  toast.textContent = message;
+  toast.classList.add('show');
+  window.clearTimeout(toastTimer);
+  toastTimer = window.setTimeout(() => toast.classList.remove('show'), 3200);
+}
 
-boot().catch((error) => { console.error(error); showToast('数据加载失败，请检查 data/seed-data.json'); });
-
+boot();

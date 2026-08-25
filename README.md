@@ -30,6 +30,48 @@
 
 RLS 现在允许匿名游客和已登录用户读取车辆数据；插入、修改、删除仍仅允许 `admin` 角色。前端的 `window.APP_CONFIG` 只使用 anon public key，`SUPABASE_SERVICE_ROLE_KEY` 只能在本地导入时使用。
 
+## 飞书同步
+
+现在仓库里已经补了“飞书电子表格 -> Supabase”的同步链路，适合你当前这份在线飞书表格作为唯一数据源：
+
+- [`scripts/export-feishu-sheet.mjs`](scripts/export-feishu-sheet.mjs)：调用飞书开放平台，把在线电子表格导出成 `.xlsx`。
+- [`scripts/sync-feishu-data.mjs`](scripts/sync-feishu-data.mjs)：串联“导出飞书 -> 解析关联件管理 -> 导入 Supabase”整套流程。
+- [`.github/workflows/feishu-sync.yml`](.github/workflows/feishu-sync.yml)：GitHub Actions 每 15 分钟自动同步一次，也支持手动触发。
+
+### 需要配置的 GitHub Secrets
+
+在 GitHub 仓库 `Settings -> Secrets and variables -> Actions` 里添加：
+
+- `FEISHU_APP_ID`
+- `FEISHU_APP_SECRET`
+- `FEISHU_SHEET_TOKEN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+其中 `FEISHU_SHEET_TOKEN` 填你当前飞书表格 URL 里的文档 token，例如：
+
+```text
+https://momenta.feishu.cn/sheets/YDWMsTYtNh6gPXtdzhbcgztBn8g?sheet=hrtSSL
+                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+```
+
+默认解析的工作表名称仍然是 `关联件管理`，也就是你截图里当前正在使用的那个 sheet tab。
+
+### 本地手动同步
+
+如果你想先手动跑一遍同步，可以在项目根目录执行：
+
+```powershell
+$env:FEISHU_APP_ID = "cli_xxx"
+$env:FEISHU_APP_SECRET = "xxx"
+$env:FEISHU_SHEET_TOKEN = "YDWMsTYtNh6gPXtdzhbcgztBn8g"
+$env:SUPABASE_URL = "https://your-project.supabase.co"
+$env:SUPABASE_SERVICE_ROLE_KEY = "your-service-role-key"
+npm run sync-feishu-data
+```
+
+跑完之后，Supabase 会被替换为飞书表格里的最新关联件数据；网站点一下刷新按钮，就会拉到最新结果。
+
 ## 从 Excel 导入
 
 在项目根目录运行：

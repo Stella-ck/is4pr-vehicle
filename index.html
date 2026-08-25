@@ -19,7 +19,7 @@
         <button class="icon-button" id="refreshBtn" type="button" title="刷新数据" aria-label="刷新数据">↻</button>
         <button class="account-button" id="authBtn" type="button">
           <span class="avatar" id="avatarLabel">访</span>
-          <span id="userLabel">登录查看</span>
+          <span id="userLabel">游客查看</span>
         </button>
       </div>
     </header>
@@ -29,11 +29,11 @@
         <div class="hero-copy">
           <p class="eyebrow">IS4PR · COMPONENT VERSION CENTER</p>
           <h1>按车辆汇总关联件版本</h1>
-          <p>选择一辆车，即可查看该车所有关联件、版本号与基线备注。管理员可直接维护车辆和版本记录。</p>
+          <p>游客可直接查看该车所有关联件、版本号与基线备注。管理员登录后可直接维护车辆和版本记录。</p>
         </div>
         <div class="hero-art" aria-hidden="true">
           <span class="hero-ring ring-one"></span><span class="hero-ring ring-two"></span><span class="hero-dot dot-one"></span><span class="hero-dot dot-two"></span>
-          <div class="hero-card"><small>ACCESS</small><strong>ADMIN / VIEWER</strong><span>Supabase RLS 已保护写入权限</span></div>
+          <div class="hero-card"><small>ACCESS</small><strong>GUEST READ / ADMIN WRITE</strong><span>游客可看，只有管理员可增删改</span></div>
         </div>
       </section>
 
@@ -45,7 +45,7 @@
             <div>
               <p class="section-kicker">VEHICLES</p>
               <h2>车辆列表</h2>
-              <p class="section-note">点击车辆卡片查看完整关联件清单。</p>
+              <p class="section-note">点击车辆卡片查看完整关联件清单，游客默认只读。</p>
             </div>
             <button class="primary-button admin-only" id="addVehicleBtn" type="button" hidden>＋ 新增车辆</button>
           </div>
@@ -72,15 +72,15 @@
     <section class="modal-card auth-card" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
       <button class="modal-close" type="button" data-close="authModal" aria-label="关闭">×</button>
       <p class="modal-kicker" id="authKicker">ACCOUNT ACCESS</p>
-      <h2 id="authModalTitle">登录查看数据</h2>
-      <p id="authDescription">访客登录后只可查看；管理员账号可维护车辆与关联件版本。</p>
+      <h2 id="authModalTitle">账号登录</h2>
+      <p id="authDescription">游客无需登录即可查看；登录后默认只读，管理员账号可维护车辆与关联件版本。</p>
       <form id="authForm">
         <label>邮箱<input id="emailInput" type="email" autocomplete="email" required placeholder="name@company.com" /></label>
         <label>密码<input id="passwordInput" type="password" autocomplete="current-password" required minlength="6" placeholder="至少 6 位" /></label>
         <button class="primary-button full-width" id="authSubmitBtn" type="submit">登录</button>
         <p class="form-message" id="authMessage" aria-live="polite"></p>
       </form>
-      <button class="modal-link" id="authModeToggle" type="button">没有账号？注册访客账号</button>
+      <button class="modal-link" id="authModeToggle" type="button">没有账号？注册只读账号</button>
     </section>
   </div>
 

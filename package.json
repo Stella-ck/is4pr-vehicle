@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "import-seed": "node scripts/import-seed.mjs",
+    "export-feishu-sheet": "node scripts/export-feishu-sheet.mjs",
+    "sync-feishu-data": "node scripts/sync-feishu-data.mjs",
     "build-vehicle-data": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/build-vehicle-data.ps1",
     "import-vehicle-data": "node scripts/import-vehicle-data.mjs"
   },

@@ -26,7 +26,6 @@ const multiline = (value, empty = '—') => {
 };
 const escapeCsv = (value) => `"${text(value).replaceAll('"', '""')}"`;
 const canManage = () => state.remote && !state.showDemo && state.isAdmin;
-const needsLogin = () => state.remote && !state.showDemo && !state.user;
 
 async function boot() {
   bindEvents();
@@ -34,10 +33,7 @@ async function boot() {
   setupSupabase();
   await restoreSession();
 
-  if (state.remote) {
-    if (state.user) await loadRemote();
-    else useDataset({ vehicles: [], records: [] }, false);
-  }
+  if (state.remote) await loadRemote();
 
   renderAll();
 }
@@ -65,11 +61,10 @@ async function restoreSession() {
     window.setTimeout(async () => {
       if (session) {
         await applySession(session);
-        await loadRemote();
       } else {
         clearSession();
-        useDataset({ vehicles: [], records: [] }, false);
       }
+      await loadRemote();
       renderAll();
     }, 0);
   });
@@ -145,7 +140,7 @@ function useDataset(dataset, showDemo) {
 }
 
 async function loadRemote() {
-  if (!state.supabase || !state.user) return;
+  if (!state.supabase) return;
   try {
     const [vehicles, records] = await Promise.all([
       fetchAll('vehicles', 'id,vehicle_code,vin,source_header,created_at,updated_at', ['vehicle_code']),
@@ -155,7 +150,7 @@ async function loadRemote() {
   } catch (error) {
     console.warn('Unable to load vehicle records.', error);
     await loadDemo();
-    showToast('Supabase 数据表尚未就绪，正在显示脱敏演示数据');
+    showToast('线上公开读取尚未启用，已切换为脱敏演示数据');
   }
 }
 
@@ -229,7 +224,7 @@ async function handleAction(event) {
 }
 
 async function refreshData() {
-  if (state.remote && state.user && !state.showDemo) {
+  if (state.remote && !state.showDemo) {
     await loadRemote();
     renderAll();
     showToast('数据已刷新');
@@ -241,7 +236,6 @@ async function refreshData() {
     showToast('演示数据已刷新');
     return;
   }
-  openAuthModal('login');
 }
 
 function renderAll() {
@@ -256,22 +250,24 @@ function renderAll() {
 function renderConnection() {
   const label = state.showDemo
     ? '脱敏演示数据'
-    : state.remote && state.user
-      ? 'Supabase 已连接'
+    : state.remote && state.user && state.isAdmin
+      ? 'Supabase 在线 · 管理员'
+      : state.remote && state.user
+        ? 'Supabase 在线 · 只读'
       : state.remote
-        ? '请登录后读取数据'
+        ? 'Supabase 在线 · 游客可看'
         : '本地演示模式';
   $('connectionLabel').textContent = label;
 }
 
 function renderUser() {
-  const label = state.isAdmin ? '管理员 · 退出' : state.user ? '访客 · 退出' : '登录查看';
+  const label = state.isAdmin ? '管理员 · 退出' : state.user ? '只读用户 · 退出' : '游客查看';
   $('userLabel').textContent = label;
-  $('avatarLabel').textContent = state.isAdmin ? '管' : state.user ? '访' : '登';
+  $('avatarLabel').textContent = state.isAdmin ? '管' : state.user ? '只' : '访';
+  $('authBtn').title = state.user ? '退出登录' : '登录只读账号或管理员账号';
 }
 
 function renderMetrics() {
-  const accessible = !needsLogin();
   const vehicleCount = state.vehicles.length;
   const componentCount = new Set(state.records.map((record) => record.componentName)).size;
   const versionCount = state.records.length;
@@ -286,7 +282,7 @@ function renderMetrics() {
     <article class="metric metric-${tone}">
       <span class="metric-icon">${icon}</span>
       <span class="metric-label">${label}</span>
-      <strong>${accessible ? value.toLocaleString() : '—'}</strong>
+      <strong>${value.toLocaleString()}</strong>
     </article>`).join('');
 }
 
@@ -307,18 +303,11 @@ function vehicleSearchText(vehicle) {
 
 function renderVehicleCards() {
   const empty = $('vehicleEmpty');
-  if (needsLogin()) {
-    $('vehicleGrid').innerHTML = '';
-    empty.hidden = false;
-    empty.innerHTML = `<span class="empty-icon">⌁</span><h3>登录后查看车辆数据</h3><p>访客可查看全部车辆与关联件版本；管理员可编辑保存。</p><button class="primary-button" type="button" data-action="open-auth">登录或注册</button>`;
-    return;
-  }
-
   const vehicles = filteredVehicles();
   if (!vehicles.length) {
     $('vehicleGrid').innerHTML = '';
     empty.hidden = false;
-    empty.innerHTML = `<span class="empty-icon">◌</span><h3>${state.vehicles.length ? '没有匹配的车辆' : '暂无车辆数据'}</h3><p>${state.vehicles.length ? '请尝试更换关键词。' : '管理员可新增车辆或导入 Excel 数据。'}</p>`;
+    empty.innerHTML = `<span class="empty-icon">◌</span><h3>${state.vehicles.length ? '没有匹配的车辆' : '暂无关联件数据'}</h3><p>${state.vehicles.length ? '请尝试更换关键词。' : '游客可直接查看；管理员登录后可新增、修改、删除。'}</p>`;
     return;
   }
 
@@ -339,11 +328,6 @@ function renderVehicleCards() {
 
 function renderDetail() {
   const panel = $('detailPanel');
-  if (needsLogin()) {
-    panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>权限保护的数据区</h2><p>请使用访客或管理员账号登录后查看车辆的关联件信息。</p></div>`;
-    return;
-  }
-
   const vehicle = getSelectedVehicle();
   if (!vehicle) {
     panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>选择一辆车</h2><p>车辆的关联件版本会按控制器分组显示在这里。</p></div>`;
@@ -418,12 +402,12 @@ function openAuthModal(mode) {
   state.authMode = mode;
   const register = mode === 'register';
   $('authKicker').textContent = register ? 'VIEWER REGISTRATION' : 'ACCOUNT ACCESS';
-  $('authModalTitle').textContent = register ? '注册访客账号' : '登录查看数据';
+  $('authModalTitle').textContent = register ? '注册只读账号' : '账号登录';
   $('authDescription').textContent = register
     ? '注册后默认是只读访客。需要编辑权限时，请由管理员在 Supabase 中授予管理员角色。'
-    : '访客登录后只可查看；管理员账号可维护车辆与关联件版本。';
-  $('authSubmitBtn').textContent = register ? '注册访客账号' : '登录';
-  $('authModeToggle').textContent = register ? '已有账号？返回登录' : '没有账号？注册访客账号';
+    : '游客无需登录即可查看；登录后默认仍为只读，仅管理员账号可维护车辆与关联件版本。';
+  $('authSubmitBtn').textContent = register ? '注册只读账号' : '登录';
+  $('authModeToggle').textContent = register ? '已有账号？返回登录' : '没有账号？注册只读账号';
   $('passwordInput').autocomplete = register ? 'new-password' : 'current-password';
   $('authMessage').textContent = '';
   $('authForm').reset();
@@ -452,13 +436,13 @@ async function handleAuth(event) {
       if (!data.session) message.textContent = '注册成功，请前往邮箱完成验证后再登录。';
       else {
         closeModal('authModal');
-        showToast('访客账号已注册并登录');
+        showToast('只读账号已注册并登录');
       }
     } else {
       const { error } = await state.supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       closeModal('authModal');
-      showToast('登录成功，正在读取车辆数据');
+      showToast('登录成功，正在刷新权限');
     }
   } catch (error) {
     message.textContent = readableError(error);
@@ -475,9 +459,9 @@ async function signOut() {
     return;
   }
   clearSession();
-  useDataset({ vehicles: [], records: [] }, false);
+  await loadRemote();
   renderAll();
-  showToast('已退出登录');
+  showToast('已退出登录，当前为游客只读模式');
 }
 
 function openVehicleModal(vehicle = null) {

@@ -3,7 +3,8 @@
 这个静态网站将 Excel《IS4PR车辆管理表.xlsx》的 `关联件管理` 工作表转换为“车辆 → 关联件 → 版本字段”的结构：
 
 - 车辆以卡片方式展示；点击后查看该车全部关联件版本。
-- 访客注册、登录后只有查看与导出权限。
+- 游客无需登录即可查看与导出关联件信息。
+- 非管理员账号登录后仍只有查看与导出权限。
 - `admin` 角色可新增、编辑、删除车辆和每条关联件版本记录。
 - 生产数据保存在 Supabase；前端不保存服务角色密钥。
 - 旧的“关联件影响问题”界面已从网站移除。
@@ -14,7 +15,7 @@
 
 1. 在 Supabase 的 SQL Editor 中执行 [`supabase/schema.sql`](supabase/schema.sql)。它会创建 `vehicles`、`vehicle_component_versions`、用户角色和 RLS 策略。
 2. 如需彻底删除旧站的“关联件影响问题”远端记录，再执行 [`supabase/remove-legacy-issue-data.sql`](supabase/remove-legacy-issue-data.sql)。该脚本删除旧的 `sheet-1` 配置及其级联行数据。
-3. 使用网站右上角“登录查看”中的“注册访客账号”创建账号，或在 Supabase Authentication 中创建账号。
+3. 如需只读账号或管理员账号，可使用网站右上角的登录入口注册，或在 Supabase Authentication 中创建账号。游客不登录也可以直接查看关联件信息。
 4. 将需要编辑权限的账号设置为管理员：
 
    ```sql
@@ -25,7 +26,9 @@
 
 5. 在 Supabase Authentication 的 URL Configuration 中加入 GitHub Pages 地址，例如 `https://stella-ck.github.io/is4pr-vehicle/`，以便邮箱验证后返回网站。
 
-RLS 只允许已登录用户读取车辆数据；插入、修改、删除仅允许 `admin` 角色。前端的 `window.APP_CONFIG` 只使用 anon public key，`SUPABASE_SERVICE_ROLE_KEY` 只能在本地导入时使用。
+如果线上环境已经执行过旧版权限策略，请再执行一次 [`supabase/enable-public-read.sql`](supabase/enable-public-read.sql)，把车辆和关联件版本表的读取权限开放给游客。
+
+RLS 现在允许匿名游客和已登录用户读取车辆数据；插入、修改、删除仍仅允许 `admin` 角色。前端的 `window.APP_CONFIG` 只使用 anon public key，`SUPABASE_SERVICE_ROLE_KEY` 只能在本地导入时使用。
 
 ## 从 Excel 导入
 
@@ -60,7 +63,7 @@ npx serve .
 
 ## 维护入口
 
-- 网站右上角：登录、退出、刷新数据。
+- 网站右上角：游客查看、登录/退出、刷新数据。
 - 车辆卡片：按车辆编号、VIN 或关联件关键词搜索。
 - 管理员：新增车辆，编辑或删除车辆；在车辆详情中新增、编辑、删除任意版本字段。
-- 所有已登录用户：导出当前车辆的 CSV 版本清单。
+- 游客和所有已登录用户：导出当前车辆的 CSV 版本清单。

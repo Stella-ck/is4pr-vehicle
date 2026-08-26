@@ -98,16 +98,21 @@ function resolveExportResult(payload) {
     result?.file?.name ||
     data?.file?.name
   );
-  return { status, fileToken, fileName, raw: payload };
+  const jobErrorMsg = text(result?.job_error_msg || data?.job_error_msg);
+  return { status, fileToken, fileName, jobErrorMsg, raw: payload };
 }
 
 function isFinished(status, fileToken) {
   if (fileToken) return true;
-  return ['success', 'succeeded', 'completed', 'done', 'finished', '1'].includes(status);
+  return ['success', 'succeeded', 'completed', 'done', 'finished', '0'].includes(status);
+}
+
+function isPending(status) {
+  return ['', 'new', 'processing', 'pending', '1', '2'].includes(status);
 }
 
 function isFailed(status) {
-  return ['failed', 'failure', 'error', 'cancelled', 'canceled', '-1', '2'].includes(status);
+  return !isPending(status) && !isFinished(status);
 }
 
 async function waitForExport(accessToken, ticket) {
@@ -122,7 +127,8 @@ async function waitForExport(accessToken, ticket) {
     const result = resolveExportResult(payload);
     if (isFinished(result.status, result.fileToken)) return result;
     if (isFailed(result.status)) {
-      throw new Error(`Feishu export task failed: ${JSON.stringify(result.raw)}`);
+      const details = result.jobErrorMsg ? `${result.jobErrorMsg}: ` : '';
+      throw new Error(`Feishu export task failed: ${details}${JSON.stringify(result.raw)}`);
     }
     await sleep(pollIntervalMs);
   }

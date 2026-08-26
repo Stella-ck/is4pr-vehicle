@@ -138,7 +138,7 @@ async function waitForExport(accessToken, ticket) {
 
 async function downloadExport(accessToken, fileToken) {
   const response = await fetch(
-    `https://open.feishu.cn/open-apis/drive/v1/files/${fileToken}/download`,
+    `https://open.feishu.cn/open-apis/drive/v1/export_tasks/file/${fileToken}/download`,
     { headers: { Authorization: `Bearer ${accessToken}` }, redirect: 'follow' }
   );
 

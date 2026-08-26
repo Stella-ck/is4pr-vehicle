@@ -113,8 +113,10 @@ function isFailed(status) {
 async function waitForExport(accessToken, ticket) {
   const startedAt = Date.now();
   while (Date.now() - startedAt < pollTimeoutMs) {
+    const exportStatusUrl = new URL(`https://open.feishu.cn/open-apis/drive/v1/export_tasks/${ticket}`);
+    exportStatusUrl.searchParams.set('token', sheetToken);
     const payload = await requestJson(
-      `https://open.feishu.cn/open-apis/drive/v1/export_tasks/${ticket}`,
+      exportStatusUrl,
       { headers: { Authorization: `Bearer ${accessToken}` } }
     );
     const result = resolveExportResult(payload);

@@ -346,13 +346,14 @@ main { display: grid; gap: 18px; }
 .detail-summary { display: flex; flex-wrap: wrap; gap: 7px; padding: 0 27px 17px; border-bottom: 1px solid var(--line); }
 .detail-summary span { padding: 5px 8px; border: 1px solid #e5e8f7; border-radius: 7px; color: #7180a0; background: #fafbff; font-size: 10px; }
 .component-list { max-height: 530px; overflow: auto; padding: 12px 17px 20px; }
-.component-group { margin: 0 0 10px; overflow: hidden; border: 1px solid #e6e9f2; border-radius: 14px; background: #fff; }
-.component-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 13px 15px; background: #fafbfe; }
-.component-heading h3 { margin: 0; font-size: 14px; letter-spacing: -0.02em; }
-.component-heading p { margin: 3px 0 0; color: #8b95aa; font-size: 10px; }
-.component-heading > span { padding: 4px 7px; border-radius: 7px; color: #6070c4; background: #eceeff; font-size: 9px; font-weight: 800; white-space: nowrap; }
-.component-note { margin: 10px 13px 0; padding: 9px 10px; border-left: 3px solid #7b84ee; border-radius: 0 7px 7px 0; color: #6b7490; background: #f6f7ff; font-size: 10px; line-height: 1.65; }
+.vehicle-record-board { overflow: hidden; border: 1px solid #e6e9f2; border-radius: 18px; background: linear-gradient(180deg, #ffffff, #fbfcff); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7); }
+.board-group + .board-group { border-top: 1px solid #e9edf6; }
+.board-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding: 16px 18px 12px; background: #fafbfe; }
+.board-heading h3 { margin: 0; font-size: 16px; letter-spacing: -0.03em; }
+.board-heading > span { padding: 4px 8px; border-radius: 999px; color: #6070c4; background: #eceeff; font-size: 9px; font-weight: 800; white-space: nowrap; }
+.component-note { margin: 0 18px 10px; padding: 9px 10px; border-left: 3px solid #7b84ee; border-radius: 0 7px 7px 0; color: #6b7490; background: #f6f7ff; font-size: 10px; line-height: 1.65; }
 .version-table { padding: 7px 13px 12px; }
+.board-table { padding: 0 18px 14px; }
 .version-row { display: grid; grid-template-columns: minmax(125px, 0.85fr) minmax(125px, 1.25fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid #edf0f5; }
 .version-row:last-child { border-bottom: 0; }
 .version-label { color: #7d899f; font-size: 10px; line-height: 1.55; }
@@ -403,7 +404,7 @@ main { display: grid; gap: 18px; }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .workspace { grid-template-columns: 1fr; }
   .vehicle-panel, .detail-panel { min-height: auto; }
-  .vehicle-grid, .component-list { max-height: none; }
+  .vehicle-grid, .component-list, .vehicle-record-board { max-height: none; }
   .detail-placeholder { min-height: 330px; }
 }
 

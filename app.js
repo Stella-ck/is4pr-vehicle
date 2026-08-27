@@ -391,7 +391,7 @@ function renderDetail() {
   const panel = $('detailPanel');
   const vehicle = getSelectedVehicle();
   if (!vehicle) {
-    panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>选择一辆车</h2><p>车辆的关联件版本会按控制器分组显示在这里。</p></div>`;
+    panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>选择一辆车</h2><p>车辆的关联件版本会融合在一张大卡片里显示在这里。</p></div>`;
     return;
   }
 
@@ -411,17 +411,21 @@ function renderDetail() {
     </div>
     <div class="detail-summary"><span>${groups.length} 个关联件</span><span>${records.length} 条版本记录</span>${state.showDemo ? '<span>脱敏演示</span>' : ''}</div>
     <div class="component-list">
-      ${groups.length ? groups.map(renderComponentGroup).join('') : `<div class="component-empty"><p>该车辆暂未添加关联件版本。</p></div>`}
+      ${groups.length ? renderVehicleRecordBoard(groups) : `<div class="component-empty"><p>该车辆暂未添加关联件版本。</p></div>`}
     </div>
     ${canManage() ? `<button class="secondary-button add-version" type="button" data-action="add-version">＋ 新增关联件版本</button>` : ''}`;
 }
 
-function renderComponentGroup(group) {
+function renderVehicleRecordBoard(groups) {
+  return `<section class="vehicle-record-board">${groups.map(renderBoardGroup).join('')}</section>`;
+}
+
+function renderBoardGroup(group) {
   const note = group.records.map((record) => record.note).find(Boolean);
-  return `<section class="component-group">
-    <div class="component-heading"><div><h3>${escapeHtml(group.name)}</h3></div><span>${group.records.length} 条</span></div>
+  return `<section class="board-group">
+    <div class="board-heading"><div><h3>${escapeHtml(group.name)}</h3></div><span>${group.records.length} 条</span></div>
     ${note ? `<p class="component-note">${multiline(note)}</p>` : ''}
-    <div class="version-table">
+    <div class="version-table board-table">
       ${group.records.map((record) => `<div class="version-row">
         <span class="version-label">${escapeHtml(record.versionLabel)}</span>
         <span class="version-value">${multiline(record.versionValue)}</span>

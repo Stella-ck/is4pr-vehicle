@@ -339,6 +339,8 @@ main { display: grid; gap: 18px; }
 .detail-placeholder { min-height: 620px; display: grid; place-items: center; align-content: center; gap: 9px; padding: 40px; color: var(--muted); text-align: center; }
 .detail-placeholder h2 { margin: 4px 0 0; color: var(--ink); font-size: 19px; letter-spacing: -0.04em; }
 .detail-placeholder p { max-width: 340px; margin: 0; font-size: 12px; line-height: 1.65; }
+.detail-preview { min-height: 620px; }
+.preview-open-button { min-height: 40px; margin-top: 8px; padding: 0 18px; }
 
 .detail-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 25px 27px 17px; }
 .detail-header h2 { margin: 5px 0 0; font-size: 24px; letter-spacing: -0.05em; }
@@ -367,7 +369,11 @@ main { display: grid; gap: 18px; }
 .add-version { width: calc(100% - 34px); margin: 0 17px 18px; min-height: 40px; }
 
 .modal-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 20px; background: rgba(22, 28, 70, 0.52); backdrop-filter: blur(7px); }
+.detail-modal-backdrop { z-index: 9; }
 .modal-card { position: relative; width: min(470px, 100%); max-height: calc(100vh - 40px); overflow: auto; padding: 30px; border-radius: 22px; background: #fff; box-shadow: 0 28px 90px rgba(20, 25, 66, 0.3); }
+.detail-modal-card { width: min(1160px, calc(100vw - 36px)); max-height: calc(100vh - 32px); padding: 0; overflow: hidden; background: linear-gradient(180deg, #ffffff, #fbfcff); }
+.detail-modal-shell { max-height: calc(100vh - 32px); overflow: auto; }
+.detail-overlay-list { max-height: none; padding-bottom: 24px; }
 .auth-card { background: linear-gradient(145deg, #fff, #f9f9ff); }
 .modal-close { position: absolute; right: 15px; top: 14px; width: 29px; height: 29px; display: grid; place-items: center; border-radius: 8px; color: #8b95aa; background: #f2f4f9; font-size: 20px; line-height: 1; }
 .modal-close:hover { color: var(--violet); background: #e9edff; }
@@ -406,6 +412,7 @@ main { display: grid; gap: 18px; }
   .vehicle-panel, .detail-panel { min-height: auto; }
   .vehicle-grid, .component-list, .vehicle-record-board { max-height: none; }
   .detail-placeholder { min-height: 330px; }
+  .detail-modal-card { width: min(1160px, calc(100vw - 24px)); }
 }
 
 @media (max-width: 560px) {
@@ -427,6 +434,8 @@ main { display: grid; gap: 18px; }
   .vehicle-grid { padding: 11px; }
   .detail-summary { padding: 0 19px 14px; }
   .component-list { padding: 11px 10px 16px; }
+  .detail-modal-card { width: calc(100vw - 12px); max-height: calc(100vh - 12px); }
+  .detail-modal-shell { max-height: calc(100vh - 12px); }
   .version-row { grid-template-columns: 1fr; gap: 5px; }
   .version-actions { grid-row: 1; grid-column: 1; justify-self: end; }
   .add-version { width: calc(100% - 20px); margin: 0 10px 13px; }

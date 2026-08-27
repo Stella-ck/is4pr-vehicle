@@ -61,11 +61,18 @@
           <div class="detail-placeholder">
             <span class="placeholder-icon">⌁</span>
             <h2>选择一辆车</h2>
-            <p>车辆的关联件版本会按控制器分组显示在这里。</p>
+            <p>点击车辆卡片后，会以覆盖弹层的方式展开这台车的完整关联件版本信息。</p>
           </div>
         </aside>
       </section>
     </main>
+  </div>
+
+  <div class="modal-backdrop detail-modal-backdrop" id="detailModal" hidden>
+    <section class="modal-card detail-modal-card" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <button class="modal-close" type="button" data-close="detailModal" aria-label="关闭">×</button>
+      <div id="detailModalContent"></div>
+    </section>
   </div>
 
   <div class="modal-backdrop" id="authModal" hidden>

@@ -215,7 +215,9 @@ async function handleAction(event) {
     state.selectedVehicleId = trigger.dataset.vehicleId;
     renderVehicleCards();
     renderDetail();
+    openModal('detailModal');
   }
+  if (action === 'reopen-detail') openModal('detailModal');
   if (action === 'edit-vehicle') openVehicleModal(getSelectedVehicle());
   if (action === 'delete-vehicle') await deleteVehicle(getSelectedVehicle());
   if (action === 'add-version') openVersionModal();
@@ -391,17 +393,24 @@ function renderDetail() {
   const panel = $('detailPanel');
   const vehicle = getSelectedVehicle();
   if (!vehicle) {
-    panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>选择一辆车</h2><p>车辆的关联件版本会融合在一张大卡片里显示在这里。</p></div>`;
+    panel.innerHTML = `<div class="detail-placeholder"><span class="placeholder-icon">⌁</span><h2>选择一辆车</h2><p>点击车辆卡片后，会以覆盖弹层的方式展开这台车的完整关联件版本信息。</p></div>`;
+    $('detailModalContent').innerHTML = '';
+    closeModal('detailModal');
     return;
   }
 
   const records = getRecords(vehicle.id);
   const groups = groupRecords(records);
-  panel.innerHTML = `
+  panel.innerHTML = `<div class="detail-placeholder detail-preview"><span class="placeholder-icon">▣</span><h2>${escapeHtml(vehicle.vehicleCode)}</h2><p>已选中这台车。完整关联件版本会以覆盖层方式单独展开。</p><button class="secondary-button preview-open-button" type="button" data-action="reopen-detail">打开覆盖详情</button></div>`;
+  $('detailModalContent').innerHTML = renderDetailOverlay(vehicle, records, groups);
+}
+
+function renderDetailOverlay(vehicle, records, groups) {
+  return `<div class="detail-modal-shell">
     <div class="detail-header">
       <div>
         <p class="section-kicker">VEHICLE DETAIL</p>
-        <h2>${escapeHtml(vehicle.vehicleCode)}</h2>
+        <h2 id="detailModalTitle">${escapeHtml(vehicle.vehicleCode)}</h2>
         <p class="detail-vin">${vehicle.vin ? `VIN · ${escapeHtml(vehicle.vin)}` : 'VIN 待补充'}</p>
       </div>
       <div class="detail-actions">
@@ -410,10 +419,11 @@ function renderDetail() {
       </div>
     </div>
     <div class="detail-summary"><span>${groups.length} 个关联件</span><span>${records.length} 条版本记录</span>${state.showDemo ? '<span>脱敏演示</span>' : ''}</div>
-    <div class="component-list">
+    <div class="component-list detail-overlay-list">
       ${groups.length ? renderVehicleRecordBoard(groups) : `<div class="component-empty"><p>该车辆暂未添加关联件版本。</p></div>`}
     </div>
-    ${canManage() ? `<button class="secondary-button add-version" type="button" data-action="add-version">＋ 新增关联件版本</button>` : ''}`;
+    ${canManage() ? `<button class="secondary-button add-version" type="button" data-action="add-version">＋ 新增关联件版本</button>` : ''}
+  </div>`;
 }
 
 function renderVehicleRecordBoard(groups) {

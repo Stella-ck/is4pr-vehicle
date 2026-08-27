@@ -11,6 +11,8 @@ const sheetToken = mustGetEnv('FEISHU_SHEET_TOKEN');
 const sheetName = Deno.env.get('FEISHU_SHEET_NAME') || '关联件管理';
 const supabaseUrl = mustGetEnv('SUPABASE_URL');
 const supabaseServiceRoleKey = mustGetEnv('SUPABASE_SERVICE_ROLE_KEY');
+const excludedVehicleCodes = new Set(['IS4PR-UOV012']);
+const excludedComponentNames = new Set(['IPD', 'ZXD']);
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') {
@@ -25,7 +27,7 @@ Deno.serve(async (request) => {
     const accessToken = await getTenantAccessToken();
     const targetSheet = await getTargetSheet(accessToken);
     const rows = await fetchSheetRows(accessToken, targetSheet);
-    const dataset = parseSheetRows(rows);
+    const dataset = filterDataset(parseSheetRows(rows));
     const summary = await syncDataset(dataset);
 
     return jsonResponse({
@@ -67,6 +69,22 @@ function jsonResponse(payload, status = 200) {
     status,
     headers: { ...corsHeaders, 'Content-Type': 'application/json; charset=utf-8' }
   });
+}
+
+function normalizeVehicleCode(value) {
+  return clean(value).toUpperCase().replace(/[–—]/g, '-');
+}
+
+function normalizeComponentName(value) {
+  return clean(value).toUpperCase();
+}
+
+function isExcludedVehicleCode(value) {
+  return excludedVehicleCodes.has(normalizeVehicleCode(value));
+}
+
+function isExcludedComponentName(value) {
+  return excludedComponentNames.has(normalizeComponentName(value));
 }
 
 async function requestJson(url, options = {}) {
@@ -167,7 +185,8 @@ function parseSheetRows(rows) {
     const headerValue = clean(headerRow[columnIndex]);
     const vehicleMatch = headerValue.match(/\bIS4PR[-–—]?[A-Z0-9]+\b/i);
     if (!vehicleMatch) continue;
-    const vehicleCode = vehicleMatch[0].toUpperCase().replace(/[–—]/g, '-');
+    const vehicleCode = normalizeVehicleCode(vehicleMatch[0]);
+    if (isExcludedVehicleCode(vehicleCode)) continue;
     const vinMatch = headerValue.toUpperCase().match(/\b[A-HJ-NPR-Z0-9]{17}\b/);
     const vehicle = {
       vehicleCode,
@@ -227,6 +246,7 @@ function parseSheetRows(rows) {
     }
 
     if (!componentName || !versionLabel) continue;
+    if (isExcludedComponentName(componentName)) continue;
 
     for (const vehicleColumn of vehicleColumns) {
       const versionValue = getCellText(row, vehicleColumn.columnIndex);
@@ -247,6 +267,16 @@ function parseSheetRows(rows) {
     }
   }
 
+  return { vehicles, records };
+}
+
+function filterDataset(dataset) {
+  const vehicles = dataset.vehicles.filter((vehicle) => !isExcludedVehicleCode(vehicle.vehicleCode));
+  const vehicleCodes = new Set(vehicles.map((vehicle) => normalizeVehicleCode(vehicle.vehicleCode)));
+  const records = dataset.records.filter((record) => {
+    return vehicleCodes.has(normalizeVehicleCode(record.vehicleCode))
+      && !isExcludedComponentName(record.componentName);
+  });
   return { vehicles, records };
 }
 
@@ -275,6 +305,7 @@ function chunks(items, size) {
 
 async function syncDataset(dataset) {
   const client = createClient(supabaseUrl, supabaseServiceRoleKey, { auth: { persistSession: false } });
+  await cleanupRemovedData(client);
 
   const vehicleRows = dataset.vehicles.map((vehicle) => {
     const vehicleCode = clean(vehicle.vehicleCode);
@@ -289,6 +320,10 @@ async function syncDataset(dataset) {
   const vehicleCodes = [...new Set(vehicleRows.map((vehicle) => vehicle.vehicle_code))];
   if (vehicleCodes.length !== vehicleRows.length) {
     throw new Error('Duplicate vehicleCode detected in sheet data.');
+  }
+
+  if (!vehicleRows.length) {
+    return { vehicleCount: 0, recordCount: 0 };
   }
 
   for (const batch of chunks(vehicleRows, 500)) {
@@ -348,4 +383,38 @@ async function syncDataset(dataset) {
   }
 
   return { vehicleCount: vehicleRows.length, recordCount: versionRows.length };
+}
+
+async function cleanupRemovedData(client) {
+  if (excludedComponentNames.size) {
+    const { error } = await client
+      .from('vehicle_component_versions')
+      .delete()
+      .in('component_name', [...excludedComponentNames]);
+    if (error) throw error;
+  }
+
+  if (!excludedVehicleCodes.size) return;
+
+  const excludedCodes = [...excludedVehicleCodes];
+  const { data: excludedVehicles, error: lookupError } = await client
+    .from('vehicles')
+    .select('id,vehicle_code')
+    .in('vehicle_code', excludedCodes);
+  if (lookupError) throw lookupError;
+
+  const excludedVehicleIds = (excludedVehicles || []).map((vehicle) => vehicle.id);
+  if (excludedVehicleIds.length) {
+    const { error: recordDeleteError } = await client
+      .from('vehicle_component_versions')
+      .delete()
+      .in('vehicle_id', excludedVehicleIds);
+    if (recordDeleteError) throw recordDeleteError;
+  }
+
+  const { error: vehicleDeleteError } = await client
+    .from('vehicles')
+    .delete()
+    .in('vehicle_code', excludedCodes);
+  if (vehicleDeleteError) throw vehicleDeleteError;
 }

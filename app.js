@@ -418,9 +418,8 @@ function renderDetail() {
 
 function renderComponentGroup(group) {
   const note = group.records.map((record) => record.note).find(Boolean);
-  const category = group.records.map((record) => record.componentCategory).find(Boolean);
   return `<section class="component-group">
-    <div class="component-heading"><div><h3>${escapeHtml(group.name)}</h3>${category ? `<p>${escapeHtml(category)}</p>` : ''}</div><span>${group.records.length} 条</span></div>
+    <div class="component-heading"><div><h3>${escapeHtml(group.name)}</h3></div><span>${group.records.length} 条</span></div>
     ${note ? `<p class="component-note">${multiline(note)}</p>` : ''}
     <div class="version-table">
       ${group.records.map((record) => `<div class="version-row">

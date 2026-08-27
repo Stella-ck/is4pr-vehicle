@@ -8,7 +8,8 @@ const state = {
   records: [],
   selectedVehicleId: null,
   query: '',
-  authMode: 'login'
+  authMode: 'login',
+  syncing: false
 };
 
 const $ = (id) => document.getElementById(id);
@@ -223,24 +224,69 @@ async function handleAction(event) {
   if (action === 'export-vehicle') exportVehicleCsv();
 }
 
+function getSyncFunctionUrl() {
+  const config = window.APP_CONFIG || {};
+  if (config.syncFunctionUrl) return config.syncFunctionUrl;
+  return config.supabaseUrl ? config.supabaseUrl + '/functions/v1/feishu-sync-now' : '';
+}
+
+async function triggerImmediateSync() {
+  const syncUrl = getSyncFunctionUrl();
+  if (!syncUrl) throw new Error('未配置立即同步入口。');
+
+  const config = window.APP_CONFIG || {};
+  const response = await fetch(syncUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      apikey: config.supabaseAnonKey || ''
+    },
+    body: JSON.stringify({ source: 'manual-button' })
+  });
+
+  const payload = await response.json().catch(() => null);
+  if (!response.ok || payload?.ok === false) {
+    throw new Error(clean(payload?.error || payload?.message) || ('立即同步失败 (' + response.status + ')'));
+  }
+  return payload || {};
+}
+
 async function refreshData() {
+  if (state.syncing) return;
+
   if (state.remote && !state.showDemo) {
-    await loadRemote();
+    state.syncing = true;
     renderAll();
-    showToast('数据已刷新');
+    showToast('已开始同步，正在从飞书拉取最新数据…');
+
+    try {
+      const payload = await triggerImmediateSync();
+      await loadRemote();
+      renderAll();
+      const vehicleCount = payload.vehicleCount ?? state.vehicles.length;
+      const recordCount = payload.recordCount ?? state.records.length;
+      showToast('同步完成：' + vehicleCount + ' 台车，' + recordCount + ' 条版本记录');
+      return;
+    } catch (error) {
+      showToast(readableError(error));
+    } finally {
+      state.syncing = false;
+      renderAll();
+    }
     return;
   }
+
   if (!state.remote) {
     await loadDemo();
     renderAll();
     showToast('演示数据已刷新');
-    return;
   }
 }
 
 function renderAll() {
   renderConnection();
   renderUser();
+  renderSyncButton();
   renderMetrics();
   renderVehicleCards();
   renderDetail();
@@ -248,15 +294,17 @@ function renderAll() {
 }
 
 function renderConnection() {
-  const label = state.showDemo
-    ? '脱敏演示数据'
-    : state.remote && state.user && state.isAdmin
-      ? 'Supabase 在线 · 管理员'
-      : state.remote && state.user
-        ? 'Supabase 在线 · 只读'
-      : state.remote
-        ? 'Supabase 在线 · 游客可看'
-        : '本地演示模式';
+  const label = state.syncing
+    ? '飞书同步中 · 请稍候'
+    : state.showDemo
+      ? '脱敏演示数据'
+      : state.remote && state.user && state.isAdmin
+        ? 'Supabase 在线 · 管理员'
+        : state.remote && state.user
+          ? 'Supabase 在线 · 只读'
+          : state.remote
+            ? 'Supabase 在线 · 游客可看'
+            : '本地演示模式';
   $('connectionLabel').textContent = label;
 }
 
@@ -265,6 +313,19 @@ function renderUser() {
   $('userLabel').textContent = label;
   $('avatarLabel').textContent = state.isAdmin ? '管' : state.user ? '只' : '访';
   $('authBtn').title = state.user ? '退出登录' : '登录只读账号或管理员账号';
+}
+
+function renderSyncButton() {
+  const button = $('refreshBtn');
+  const label = $('refreshLabel');
+  if (!button || !label) return;
+
+  const loading = state.syncing;
+  button.disabled = loading;
+  button.classList.toggle('is-loading', loading);
+  button.setAttribute('aria-busy', loading ? 'true' : 'false');
+  button.title = loading ? '正在从飞书同步数据' : '立即从飞书同步最新数据';
+  label.textContent = loading ? '同步中…' : '立即同步';
 }
 
 function renderMetrics() {
